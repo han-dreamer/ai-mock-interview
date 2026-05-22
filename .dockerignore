@@ -26,6 +26,7 @@ env/
 .pip-tmp/
 .npm-cache/
 *.log
+data/eval/results/
 
 chroma_data/
 memory_data/

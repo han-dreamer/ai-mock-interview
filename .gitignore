@@ -32,6 +32,7 @@ pytest-cache-files-*/
 .ruff_cache/
 htmlcov/
 .coverage
+data/eval/results/
 
 *.log
 
