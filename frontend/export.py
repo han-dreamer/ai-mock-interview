@@ -1,0 +1,166 @@
+"""Export interview transcripts and reports as Markdown files."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
+
+def _format_report_section(report_data: dict, mode: str) -> str:
+    """Format report data into Markdown text."""
+    lines: list[str] = []
+
+    grade = report_data.get("grade", "?")
+    overall = report_data.get("overall_score", 0)
+
+    lines.append(f"## 评估报告")
+    lines.append("")
+    lines.append(f"**综合评分: {overall:.1f}/10  |  等级: {grade}**")
+    lines.append("")
+
+    if mode == "professional" and report_data.get("hiring_recommendation"):
+        lines.append(f"**录用建议:** {report_data['hiring_recommendation']}")
+        lines.append("")
+
+    round_scores = report_data.get("round_scores", [])
+    if round_scores:
+        lines.append("### 双轮得分")
+        lines.append("")
+        lines.append("| 轮次 | 得分 | 等级 | 总结 |")
+        lines.append("|------|------|------|------|")
+        for rs in round_scores:
+            lines.append(
+                f"| {rs.get('round_name', '?')} | {rs.get('score', 0):.1f}/10 "
+                f"| {rs.get('grade', '?')} | {rs.get('summary', '')} |"
+            )
+        lines.append("")
+
+    depth = report_data.get("technical_depth_score")
+    breadth = report_data.get("technical_breadth_score")
+    if depth is not None and breadth is not None:
+        lines.append(f"- **技术深度:** {depth:.1f}/10")
+        lines.append(f"- **技术广度:** {breadth:.1f}/10")
+        lines.append("")
+
+    skill_scores = report_data.get("skill_scores", [])
+    if skill_scores:
+        lines.append("### 技能评分")
+        lines.append("")
+        lines.append("| 技能 | 得分 | 评价 |")
+        lines.append("|------|------|------|")
+        for ss in skill_scores:
+            lines.append(
+                f"| {ss.get('skill_name', '?')} | {ss.get('score', 0)}/10 "
+                f"| {ss.get('evidence', '')[:80]} |"
+            )
+        lines.append("")
+
+    assessment = report_data.get("overall_assessment", "")
+    if assessment:
+        lines.append("### 综合评语")
+        lines.append("")
+        lines.append(assessment)
+        lines.append("")
+
+    strengths = report_data.get("strengths", [])
+    if strengths:
+        lines.append("### 优势")
+        lines.append("")
+        for s in strengths:
+            lines.append(f"- **{s.get('point', '')}**: {s.get('evidence', '')[:100]}")
+        lines.append("")
+
+    improvements = report_data.get("improvements", [])
+    if improvements:
+        lines.append("### 改进建议")
+        lines.append("")
+        for imp in improvements:
+            lines.append(f"- **{imp.get('point', '')}**: {imp.get('evidence', '')[:100]}")
+        lines.append("")
+
+    missed = report_data.get("missed_knowledge", [])
+    if missed:
+        lines.append("### 知识点查漏补缺")
+        lines.append("")
+        for i, mk in enumerate(missed, 1):
+            lines.append(f"#### Q{i}: {mk.get('question', '')} ({mk.get('score', 0)}/10)")
+            lines.append("")
+            for pt in mk.get("missed_points", []):
+                lines.append(f"- 遗漏: {pt}")
+            lines.append("")
+            lines.append(f"**参考答案:** {mk.get('reference_answer', '')}")
+            lines.append("")
+
+    suggestions = report_data.get("study_suggestions", [])
+    if suggestions:
+        lines.append("### 学习建议")
+        lines.append("")
+        for tip in suggestions:
+            lines.append(f"- {tip}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def export_interview_markdown(
+    history: list[dict],
+    report: object | None,
+    mode: str = "practice",
+    jd_text: str = "",
+) -> str:
+    """Generate a complete Markdown export of the interview session.
+
+    Returns the Markdown content as a string.
+    """
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    mode_label = "练习模式" if mode == "practice" else "专业面试模式"
+
+    lines: list[str] = []
+    lines.append(f"# AI Mock Interview 面试记录")
+    lines.append("")
+    lines.append(f"**模式:** {mode_label}  |  **时间:** {now}")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    if jd_text:
+        lines.append("## 职位描述 (JD)")
+        lines.append("")
+        lines.append("```")
+        lines.append(jd_text[:500] + ("..." if len(jd_text) > 500 else ""))
+        lines.append("```")
+        lines.append("")
+
+    lines.append("## 面试对话记录")
+    lines.append("")
+    for msg in history:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if role == "assistant":
+            lines.append(f"**面试官:** {content}")
+        elif role == "user":
+            lines.append(f"**候选人:** {content}")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("")
+
+    if report:
+        data = report.model_dump() if hasattr(report, "model_dump") else report
+        lines.append(_format_report_section(data, mode))
+
+    lines.append("---")
+    lines.append("")
+    lines.append("*Generated by AI Mock Interview Agent*")
+
+    return "\n".join(lines)
+
+
+def save_export(content: str, directory: str | Path = ".") -> str:
+    """Save Markdown content to a timestamped file. Returns the file path."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = directory / f"interview_{timestamp}.md"
+    filepath.write_text(content, encoding="utf-8")
+    return str(filepath)

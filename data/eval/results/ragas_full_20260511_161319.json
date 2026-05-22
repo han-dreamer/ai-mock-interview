@@ -1,0 +1,52 @@
+{
+  "created_at": "20260511_161319",
+  "corpus": {
+    "vector_store_documents": 2523
+  },
+  "results": [
+    {
+      "variant": "full",
+      "summary": {
+        "faithfulness": 0.8571428571428571,
+        "answer_relevancy": 0.9999999999999999,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      "traces": [
+        {
+          "id": "ragas-001",
+          "question": "What is Parent-Child Chunking in RAG?",
+          "ground_truth": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context.",
+          "expected_source_ids": [
+            "rag-adv-001",
+            "rag-adv-010"
+          ],
+          "retrieved_source_ids": [
+            "rag-adv-001",
+            "rag-adv-015"
+          ],
+          "answer": "Parent-Child Chunking in RAG is a strategy where a document is split into two levels: small **child chunks** optimized for fine-grained retrieval and larger **parent documents** that preserve full context for generation. Each child chunk is linked to its parent via a `parent_id`. This approach balances retrieval precision (by searching child chunks) with generation coherence (by providing the parent context to the model).",
+          "contexts": [
+            "Source ID: rag-adv-001\nCategory: Advanced RAG Patterns\nDifficulty: medium\nSkill tags: RAG; Chunking; Parent-Child Retrieval\nChunk type: generated_query\nChunk strategy: parent_child_structure_aware_v1\nQuestion or topic: What is Parent-Child Chunking in RAG, and why is it useful?\nReference points: Child chunks are small retrieval units optimized for recall; Parent documents are larger generation units that preserve full context; Retrieval matches fine-grained evidence while generation receives coherent context; It is useful for structured documents with sections, answers, or metadata; A parent_id links each child chunk back to the source document\nFollow-up directions: How would you choose child chunk size?; What metadata must each child chunk store?\nSource chunk ids: rag-adv-001__generated_query_1; rag-adv-001__generated_query_3; rag-adv-001__generated_query_2; rag-adv-001__question_stem; rag-adv-001__generated_query_4\nSource chunk types: generated_query; question_stem; answer_point; follow_up\nMatched chunks: Interview question about RAG, Chunking, Parent-Child Retrieval; Deep dive follow-up for RAG, Chunking, Parent-Child Retrieval; How to evaluate a candidate on RAG, Chunking, Parent-Child Retrieval; What is Parent-Child Chunking in RAG, and why is it useful?; RAG retrieval chunking reranking evaluation interview question\nRetrieved chunk count: 10",
+            "Source ID: rag-adv-015\nCategory: Advanced RAG Patterns\nDifficulty: medium\nSkill tags: RAG; Source Tracking; Parent-Child Retrieval\nChunk type: generated_query\nChunk strategy: parent_child_structure_aware_v1\nQuestion or topic: How would you design source tracking in a parent-child RAG system?\nReference points: Track parent document ids for user-facing citations; Track child chunk ids for retrieval debugging; Store chunk type and matched chunk text for explainability; Validate that generated source ids come from the retrieved set; Use source tracking in offline evaluation and manual review\nFollow-up directions: Should users see chunk ids or parent ids?; How would you handle generated content with no source?\nSource chunk ids: rag-adv-015__generated_query_4\nSource chunk types: generated_query\nMatched chunks: RAG retrieval chunking reranking evaluation interview question\nRetrieved chunk count: 1"
+          ]
+        }
+      ],
+      "ragas_rows": [
+        {
+          "user_input": "What is Parent-Child Chunking in RAG?",
+          "retrieved_contexts": [
+            "Source ID: rag-adv-001\nCategory: Advanced RAG Patterns\nDifficulty: medium\nSkill tags: RAG; Chunking; Parent-Child Retrieval\nChunk type: generated_query\nChunk strategy: parent_child_structure_aware_v1\nQuestion or topic: What is Parent-Child Chunking in RAG, and why is it useful?\nReference points: Child chunks are small retrieval units optimized for recall; Parent documents are larger generation units that preserve full context; Retrieval matches fine-grained evidence while generation receives coherent context; It is useful for structured documents with sections, answers, or metadata; A parent_id links each child chunk back to the source document\nFollow-up directions: How would you choose child chunk size?; What metadata must each child chunk store?\nSource chunk ids: rag-adv-001__generated_query_1; rag-adv-001__generated_query_3; rag-adv-001__generated_query_2; rag-adv-001__question_stem; rag-adv-001__generated_query_4\nSource chunk types: generated_query; question_stem; answer_point; follow_up\nMatched chunks: Interview question about RAG, Chunking, Parent-Child Retrieval; Deep dive follow-up for RAG, Chunking, Parent-Child Retrieval; How to evaluate a candidate on RAG, Chunking, Parent-Child Retrieval; What is Parent-Child Chunking in RAG, and why is it useful?; RAG retrieval chunking reranking evaluation interview question\nRetrieved chunk count: 10",
+            "Source ID: rag-adv-015\nCategory: Advanced RAG Patterns\nDifficulty: medium\nSkill tags: RAG; Source Tracking; Parent-Child Retrieval\nChunk type: generated_query\nChunk strategy: parent_child_structure_aware_v1\nQuestion or topic: How would you design source tracking in a parent-child RAG system?\nReference points: Track parent document ids for user-facing citations; Track child chunk ids for retrieval debugging; Store chunk type and matched chunk text for explainability; Validate that generated source ids come from the retrieved set; Use source tracking in offline evaluation and manual review\nFollow-up directions: Should users see chunk ids or parent ids?; How would you handle generated content with no source?\nSource chunk ids: rag-adv-015__generated_query_4\nSource chunk types: generated_query\nMatched chunks: RAG retrieval chunking reranking evaluation interview question\nRetrieved chunk count: 1"
+          ],
+          "response": "Parent-Child Chunking in RAG is a strategy where a document is split into two levels: small **child chunks** optimized for fine-grained retrieval and larger **parent documents** that preserve full context for generation. Each child chunk is linked to its parent via a `parent_id`. This approach balances retrieval precision (by searching child chunks) with generation coherence (by providing the parent context to the model).",
+          "reference": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context.",
+          "faithfulness": 0.8571428571,
+          "answer_relevancy": 1.0,
+          "context_precision": 1.0,
+          "context_recall": 1.0
+        }
+      ]
+    }
+  ]
+}

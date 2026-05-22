@@ -1,0 +1,344 @@
+{
+  "category": "Machine Learning & AI",
+  "questions": [
+    {
+      "id": "ml-001",
+      "content": "请解释 Transformer 的核心架构。Self-Attention 机制是如何工作的？",
+      "skill_tags": ["深度学习", "Transformer", "NLP"],
+      "difficulty": "hard",
+      "reference_points": [
+        "输入通过 Q/K/V 三个线性变换得到查询、键、值矩阵",
+        "注意力分数 = softmax(QK^T / √d_k) × V",
+        "Multi-Head Attention 允许模型关注不同位置的不同表示",
+        "位置编码（Positional Encoding）补充序列位置信息",
+        "Encoder-Decoder 结构及其变体（BERT: Encoder-only, GPT: Decoder-only）"
+      ],
+      "follow_up_directions": [
+        "为什么要除以 √d_k？",
+        "Flash Attention 做了什么优化？"
+      ]
+    },
+    {
+      "id": "ml-002",
+      "content": "请解释大语言模型（LLM）的推理过程。什么是自回归生成？Temperature 和 Top-p 参数有什么作用？",
+      "skill_tags": ["LLM", "NLP", "推理"],
+      "difficulty": "medium",
+      "reference_points": [
+        "自回归：逐 token 生成，每步基于之前所有 token 预测下一个",
+        "Temperature 控制分布的平滑度：高温更随机，低温更确定",
+        "Top-p（nucleus sampling）：从累积概率达到 p 的最小 token 集合中采样",
+        "Top-k：只从概率最高的 k 个 token 中采样",
+        "KV Cache 加速推理过程"
+      ],
+      "follow_up_directions": [
+        "Beam Search 和 Sampling 的区别？",
+        "为什么 LLM 容易产生幻觉（hallucination）？"
+      ]
+    },
+    {
+      "id": "ml-003",
+      "content": "请解释 RAG（检索增强生成）的原理和完整流程。为什么需要 RAG？",
+      "skill_tags": ["RAG", "LLM", "检索"],
+      "difficulty": "medium",
+      "reference_points": [
+        "LLM 的知识有截止日期，且可能产生幻觉",
+        "RAG 流程：Query → 检索相关文档 → 拼接到 Prompt → LLM 生成回答",
+        "文档处理：分块（chunking）、向量化（embedding）、存入向量数据库",
+        "检索方式：向量相似度搜索、混合检索（向量 + BM25）",
+        "关键优化：Reranking、Query Rewriting、HyDE"
+      ],
+      "follow_up_directions": [
+        "Chunk 大小怎么选择？有什么影响？",
+        "如何评估 RAG 系统的效果？"
+      ]
+    },
+    {
+      "id": "ml-004",
+      "content": "请解释 Embedding（向量嵌入）的概念。为什么它对 AI 应用这么重要？",
+      "skill_tags": ["Embedding", "向量", "NLP"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Embedding 将离散的数据（文本/图片等）映射到连续的向量空间",
+        "语义相近的内容在向量空间中距离更近",
+        "常见相似度计算：余弦相似度、欧氏距离、点积",
+        "常用 Embedding 模型：OpenAI text-embedding、BGE、GTE"
+      ],
+      "follow_up_directions": [
+        "向量数据库（如 ChromaDB、Milvus）的底层索引是什么？HNSW 了解吗？",
+        "如何评估 Embedding 模型的质量？"
+      ]
+    },
+    {
+      "id": "ml-005",
+      "content": "请解释 Prompt Engineering 的核心技巧。如何写出效果好的 Prompt？",
+      "skill_tags": ["Prompt Engineering", "LLM"],
+      "difficulty": "easy",
+      "reference_points": [
+        "明确角色设定（System Prompt）",
+        "Few-shot 示例提供参考",
+        "Chain-of-Thought：引导 LLM 逐步推理",
+        "Structured Output：要求 LLM 输出特定格式（JSON）",
+        "分解复杂任务为多个简单步骤"
+      ],
+      "follow_up_directions": [
+        "Zero-shot、One-shot、Few-shot 的效果差异？",
+        "Prompt Injection 攻击是什么？怎么防御？"
+      ]
+    },
+    {
+      "id": "ml-006",
+      "content": "请解释 Agent（智能体）的核心概念。一个 LLM Agent 由哪些部分组成？",
+      "skill_tags": ["Agent", "LLM", "架构"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Agent = LLM + 工具调用 + 记忆 + 规划能力",
+        "ReAct 范式：Reasoning + Acting 交替进行",
+        "工具调用：Function Calling / Tool Use",
+        "记忆系统：短期（上下文窗口）+ 长期（向量数据库/数据库）",
+        "规划：Plan-and-Solve、Reflection、多步推理"
+      ],
+      "follow_up_directions": [
+        "Multi-Agent 系统的通信方式有哪些？",
+        "Agent 的评估有哪些难点？"
+      ]
+    },
+    {
+      "id": "ml-007",
+      "content": "请解释 LangChain 和 LangGraph 的区别。什么场景下应该用 LangGraph？",
+      "skill_tags": ["LangChain", "LangGraph", "Agent框架"],
+      "difficulty": "medium",
+      "reference_points": [
+        "LangChain 的 Chain 是 DAG（有向无环图），适合线性流程",
+        "LangGraph 支持有环图和条件分支，适合需要循环的场景",
+        "LangGraph 提供持久化状态和 human-in-the-loop",
+        "Agent 场景通常需要循环（重试、迭代、多轮对话）",
+        "LangGraph 的 StateGraph 通过 TypedDict 定义共享状态"
+      ],
+      "follow_up_directions": [
+        "LangGraph 的 checkpoint 机制是什么？",
+        "除了 LangGraph 还有哪些 Agent 框架？"
+      ]
+    },
+    {
+      "id": "ml-008",
+      "content": "请解释 Fine-tuning 和 RAG 的适用场景区别。什么时候应该微调，什么时候用 RAG？",
+      "skill_tags": ["LLM", "Fine-tuning", "RAG"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Fine-tuning 适合：调整模型行为/风格、学习特定格式、领域适配",
+        "RAG 适合：注入最新知识、引用来源可追溯、知识频繁更新",
+        "成本对比：Fine-tuning 需要训练资源，RAG 需要检索基础设施",
+        "可以组合使用：Fine-tuned 模型 + RAG",
+        "LoRA/QLoRA 降低微调成本"
+      ],
+      "follow_up_directions": [
+        "LoRA 的原理是什么？",
+        "DPO 和 RLHF 的区别？"
+      ]
+    },
+    {
+      "id": "ml-009",
+      "content": "请解释向量数据库的核心技术。ANN（近似最近邻）搜索是怎么实现的？",
+      "skill_tags": ["向量数据库", "ANN", "搜索"],
+      "difficulty": "hard",
+      "reference_points": [
+        "精确搜索（暴力搜索）在高维大数据量下不可行",
+        "HNSW（分层可导航小世界图）：基于图的索引，高召回高性能",
+        "IVF（倒排文件索引）：先聚类再搜索，用于大规模数据",
+        "PQ（乘积量化）：压缩向量减少内存占用",
+        "常见数据库：ChromaDB、Milvus、Qdrant、Pinecone"
+      ],
+      "follow_up_directions": [
+        "HNSW 的构建过程是怎样的？",
+        "如何在召回率和速度之间做平衡？"
+      ]
+    },
+    {
+      "id": "ml-010",
+      "content": "请解释 Function Calling / Tool Use 的原理。LLM 是如何知道应该调用哪个工具的？",
+      "skill_tags": ["LLM", "Function Calling", "Agent"],
+      "difficulty": "medium",
+      "reference_points": [
+        "通过 JSON Schema 描述可用工具的名称、参数、功能",
+        "LLM 在 System Prompt 或特殊 token 中获得工具信息",
+        "LLM 输出结构化的工具调用请求（function name + arguments）",
+        "应用层执行工具调用并将结果返回给 LLM",
+        "支持并行工具调用和多轮工具调用"
+      ],
+      "follow_up_directions": [
+        "如何处理工具调用失败的情况？",
+        "MCP（Model Context Protocol）了解吗？"
+      ]
+    },
+    {
+      "id": "ml-011",
+      "content": "请解释机器学习中的过拟合问题。有哪些常用的正则化方法？",
+      "skill_tags": ["机器学习", "正则化", "模型训练"],
+      "difficulty": "easy",
+      "reference_points": [
+        "过拟合：模型在训练集表现好但在测试集表现差",
+        "L1 正则化（Lasso）：产生稀疏权重，可做特征选择",
+        "L2 正则化（Ridge）：权重衰减，防止权重过大",
+        "Dropout：训练时随机关闭神经元",
+        "数据增强、早停（Early Stopping）、交叉验证"
+      ],
+      "follow_up_directions": [
+        "Batch Normalization 也有正则化效果吗？",
+        "如何判断模型是过拟合还是欠拟合？"
+      ]
+    },
+    {
+      "id": "ml-012",
+      "content": "请解释什么是上下文工程（Context Engineering）。和 Prompt Engineering 有什么区别？",
+      "skill_tags": ["Agent", "上下文工程", "LLM"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Prompt Engineering 关注单次 prompt 的优化",
+        "Context Engineering 关注系统级的上下文管理",
+        "包括：上下文窗口管理、信息压缩、记忆检索、工具结果注入",
+        "在 Agent 场景下尤其重要：多轮对话的上下文积累和筛选",
+        "核心挑战：有限的上下文窗口 vs 不断增长的信息"
+      ],
+      "follow_up_directions": [
+        "长文本的上下文压缩有哪些方法？",
+        "如何决定哪些信息放进上下文，哪些放到外部存储？"
+      ]
+    },
+    {
+      "id": "ml-013",
+      "content": "请解释 RLHF 的训练流程。为什么大语言模型需要人类反馈强化学习？",
+      "skill_tags": ["LLM", "RLHF", "训练"],
+      "difficulty": "hard",
+      "reference_points": [
+        "SFT（有监督微调）→ 奖励模型训练 → PPO 强化学习三个阶段",
+        "预训练的 LLM 只是学会了续写，不一定符合人类偏好",
+        "RLHF 让模型学会有帮助、无害、诚实（HHH）",
+        "DPO 作为 RLHF 的简化替代方案",
+        "GRPO 等新方法的改进思路"
+      ],
+      "follow_up_directions": [
+        "奖励模型的训练数据怎么收集？",
+        "RLHF 可能导致什么问题？reward hacking？"
+      ]
+    },
+    {
+      "id": "ml-014",
+      "content": "请解释 Multi-Agent 系统的架构模式。多个 Agent 之间如何协调和通信？",
+      "skill_tags": ["Agent", "Multi-Agent", "架构"],
+      "difficulty": "hard",
+      "reference_points": [
+        "中心化：一个 Orchestrator 调度多个 Worker Agent",
+        "去中心化：Agent 之间点对点通信",
+        "共享状态：通过共享的 State 传递信息",
+        "消息传递：Agent 之间通过消息队列异步通信",
+        "协议标准：A2A（Agent-to-Agent）协议"
+      ],
+      "follow_up_directions": [
+        "如何防止多 Agent 之间的死锁？",
+        "Agent 之间的信任和安全如何保证？"
+      ]
+    },
+    {
+      "id": "ml-015",
+      "content": "你如何评估一个 AI 应用的效果？有哪些常用的评估指标和方法？",
+      "skill_tags": ["评估", "LLM", "工程实践"],
+      "difficulty": "medium",
+      "reference_points": [
+        "分类任务：Accuracy、Precision、Recall、F1",
+        "生成任务：BLEU、ROUGE、BERTScore",
+        "RAG 评估：Faithfulness、Answer Relevancy、Context Recall",
+        "LLM 评估框架：RAGAS、LangSmith、DeepEval",
+        "人工评估仍然是金标准，但成本高"
+      ],
+      "follow_up_directions": [
+        "LLM-as-a-Judge 的方法可靠吗？有什么陷阱？",
+        "A/B 测试在 AI 产品中怎么做？"
+      ]
+    },
+    {
+      "id": "ml-016",
+      "content": "请解释 Tokenization 的概念。BPE、WordPiece、SentencePiece 有什么区别？",
+      "skill_tags": ["NLP", "Tokenization", "LLM"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Tokenization 将文本拆分为模型可处理的 token 序列",
+        "BPE（Byte Pair Encoding）：频率驱动合并，GPT 系列使用",
+        "WordPiece：似然驱动合并，BERT 使用",
+        "SentencePiece：与语言无关的分词，支持中文等",
+        "Token 数量影响推理成本和上下文窗口利用率"
+      ],
+      "follow_up_directions": [
+        "中文分词和英文分词有什么区别？",
+        "Tokenizer 的词汇表大小怎么影响模型？"
+      ]
+    },
+    {
+      "id": "ml-017",
+      "content": "请解释 AI 应用中的安全问题。Prompt Injection 是什么？如何防御？",
+      "skill_tags": ["AI安全", "Prompt Injection", "LLM"],
+      "difficulty": "medium",
+      "reference_points": [
+        "直接注入：用户在 prompt 中插入恶意指令覆盖系统 prompt",
+        "间接注入：通过检索内容或工具结果注入恶意指令",
+        "防御手段：输入过滤、prompt 沙箱、输出检测",
+        "System Prompt 和 User Prompt 的分离",
+        "LLM Guard 等安全工具"
+      ],
+      "follow_up_directions": [
+        "Jailbreak 和 Prompt Injection 的区别？",
+        "如何检测 LLM 输出的有害内容？"
+      ]
+    },
+    {
+      "id": "ml-018",
+      "content": "请解释模型部署的常见方案。如何优化 LLM 的推理性能？",
+      "skill_tags": ["模型部署", "推理优化", "LLM"],
+      "difficulty": "hard",
+      "reference_points": [
+        "量化：INT8/INT4 降低显存占用和提升速度",
+        "KV Cache：缓存注意力计算的中间结果",
+        "Continuous Batching：动态批处理多个请求",
+        "推理框架：vLLM、TGI、Ollama",
+        "模型并行：Tensor Parallelism、Pipeline Parallelism"
+      ],
+      "follow_up_directions": [
+        "GPTQ 和 AWQ 量化方法的区别？",
+        "Speculative Decoding 的原理？"
+      ]
+    },
+    {
+      "id": "ml-019",
+      "content": "请解释 Agentic RAG 和传统 RAG 的区别。Agent 如何增强检索流程？",
+      "skill_tags": ["RAG", "Agent", "检索"],
+      "difficulty": "hard",
+      "reference_points": [
+        "传统 RAG 是固定的 retrieve-then-generate 流程",
+        "Agentic RAG 中 Agent 可以决定是否需要检索、检索什么、检索几次",
+        "Query Decomposition：将复杂问题拆分为子问题分别检索",
+        "Self-RAG：LLM 自我评估检索结果的相关性",
+        "Adaptive Retrieval：根据回答质量决定是否需要补充检索"
+      ],
+      "follow_up_directions": [
+        "如何实现 Query Rewriting？",
+        "检索结果的 Reranking 有哪些方法？"
+      ]
+    },
+    {
+      "id": "ml-020",
+      "content": "请解释 LLM 应用中的 Hallucination（幻觉）问题。有哪些缓解方法？",
+      "skill_tags": ["LLM", "幻觉", "可靠性"],
+      "difficulty": "medium",
+      "reference_points": [
+        "幻觉：LLM 生成看似合理但事实错误的内容",
+        "原因：训练数据噪声、自回归误差累积、知识边界模糊",
+        "缓解方法：RAG 提供事实基础、温度降低、自我一致性检查",
+        "Grounding：要求模型基于提供的上下文回答",
+        "Citation/Attribution：要求模型标注信息来源"
+      ],
+      "follow_up_directions": [
+        "如何检测 LLM 的输出是否存在幻觉？",
+        "Factuality 评估有哪些自动化方法？"
+      ]
+    }
+  ]
+}

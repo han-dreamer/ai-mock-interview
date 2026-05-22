@@ -1,0 +1,261 @@
+{
+  "category": "AI Latest Technologies & Trends",
+  "description": "AI/ML 前沿技术知识库 — 用于二面（技术广度）考察",
+  "questions": [
+    {
+      "id": "ai-trend-001",
+      "content": "请解释 AI Agent 的核心概念和架构设计。一个好的 Agent 系统需要哪些关键组件？",
+      "skill_tags": ["AI Agent", "架构设计", "LLM应用"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Agent = LLM + Memory + Tools + Planning 四大组件",
+        "规划能力：任务分解（Task Decomposition）、思维链（CoT）、ReAct 范式",
+        "记忆系统：短期记忆（上下文窗口）和长期记忆（向量数据库）",
+        "工具使用：Function Calling / Tool Use 让 LLM 与外部系统交互",
+        "常见框架：LangGraph（有状态循环图）、CrewAI（多角色协作）、AutoGen（对话式）"
+      ],
+      "follow_up_directions": [
+        "Multi-Agent 协作有哪些常见模式？",
+        "Agent 系统如何避免无限循环和幻觉传播？"
+      ]
+    },
+    {
+      "id": "ai-trend-002",
+      "content": "什么是 MCP（Model Context Protocol）？它解决了什么问题？和 Function Calling 有什么区别？",
+      "skill_tags": ["MCP", "AI Agent", "协议设计"],
+      "difficulty": "hard",
+      "reference_points": [
+        "MCP 是 Anthropic 推出的开放协议，标准化 LLM 与外部工具/数据源的连接方式",
+        "核心思想：统一接口标准，让 AI 应用像 USB 一样即插即用地连接不同工具",
+        "三大原语：Resources（数据源）、Tools（操作）、Prompts（提示模板）",
+        "与 Function Calling 的区别：FC 是模型层能力，MCP 是应用层协议；MCP 提供发现、权限、生命周期管理",
+        "Client-Server 架构：Host（AI 应用）通过 MCP Client 与多个 MCP Server 通信"
+      ],
+      "follow_up_directions": [
+        "MCP 在实际项目中如何落地？",
+        "MCP 和 OpenAPI/Swagger 的关系？"
+      ]
+    },
+    {
+      "id": "ai-trend-003",
+      "content": "请详细解释 RAG（检索增强生成）的进阶技术。如何优化一个 RAG 系统的检索质量和生成质量？",
+      "skill_tags": ["RAG", "检索优化", "LLM应用"],
+      "difficulty": "hard",
+      "reference_points": [
+        "检索优化：混合检索（向量 + BM25 + RRF）、Query Rewriting、HyDE（假设文档嵌入）",
+        "Chunking 策略：固定大小 / 语义分块 / 递归分割，chunk overlap 的权衡",
+        "Reranking：用 Cross-Encoder 对初检结果重排序，提升精度",
+        "Advanced RAG：Self-RAG（自我反思是否需要检索）、Corrective RAG（检索后验证）",
+        "评估指标：Faithfulness（忠实度）、Answer Relevancy、Context Precision/Recall"
+      ],
+      "follow_up_directions": [
+        "GraphRAG 是什么？和传统 RAG 有什么区别？",
+        "如何处理多跳推理（multi-hop reasoning）场景？"
+      ]
+    },
+    {
+      "id": "ai-trend-004",
+      "content": "什么是多模态大模型？请解释 Vision-Language Model 的工作原理和主要应用场景。",
+      "skill_tags": ["多模态", "VLM", "计算机视觉"],
+      "difficulty": "medium",
+      "reference_points": [
+        "多模态：同时处理文本、图像、音频、视频等多种信息形态",
+        "VLM 架构：视觉编码器（如 ViT）+ 对齐层（projection/Q-Former）+ LLM 解码器",
+        "代表模型：GPT-4V、Qwen-VL、LLaVA、Gemini",
+        "应用场景：图文理解、OCR、视觉问答、多模态 Agent、文档解析",
+        "训练流程：预训练对齐 → 指令微调 → RLHF"
+      ],
+      "follow_up_directions": [
+        "如何评估多模态模型的效果？",
+        "视频理解和图片理解的主要区别？"
+      ]
+    },
+    {
+      "id": "ai-trend-005",
+      "content": "请解释 RLHF（基于人类反馈的强化学习）的完整流程。为什么它对 LLM 的对齐（Alignment）很重要？",
+      "skill_tags": ["RLHF", "对齐", "强化学习"],
+      "difficulty": "hard",
+      "reference_points": [
+        "三阶段训练：SFT（有监督微调）→ 奖励模型训练 → PPO 强化学习优化",
+        "SFT：用人类标注的高质量数据微调预训练模型",
+        "Reward Model：学习人类对回答质量的偏好排序",
+        "PPO：用奖励模型的信号指导 LLM 策略优化，加 KL 散度约束防止偏离太远",
+        "替代方案：DPO（Direct Preference Optimization）直接从偏好数据优化，无需奖励模型"
+      ],
+      "follow_up_directions": [
+        "DPO 相比 RLHF 有什么优缺点？",
+        "RLHF 的 reward hacking 问题怎么解决？"
+      ]
+    },
+    {
+      "id": "ai-trend-006",
+      "content": "请解释 LLM 微调（Fine-tuning）的主要方法。什么时候该用全量微调，什么时候该用 LoRA？",
+      "skill_tags": ["微调", "LoRA", "LLM训练"],
+      "difficulty": "medium",
+      "reference_points": [
+        "全量微调（Full Fine-tuning）：更新所有参数，效果最好但成本极高",
+        "LoRA（Low-Rank Adaptation）：冻结原始权重，只训练低秩分解的增量矩阵",
+        "QLoRA：量化 + LoRA，4-bit 量化大幅降低显存需求",
+        "适用场景：特定领域知识注入、风格迁移、指令遵循能力增强",
+        "关键超参：rank（通常 8-64）、alpha、target modules、learning rate"
+      ],
+      "follow_up_directions": [
+        "LoRA 的数学原理是什么？为什么低秩就够了？",
+        "如何评估微调后模型的效果？怎么防止灾难性遗忘？"
+      ]
+    },
+    {
+      "id": "ai-trend-007",
+      "content": "什么是 Prompt Engineering？请介绍几种高效的提示词技术及其适用场景。",
+      "skill_tags": ["Prompt Engineering", "LLM应用", "CoT"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Zero-shot：直接提问，依赖模型内在知识",
+        "Few-shot：提供示例引导模型输出格式和质量",
+        "Chain-of-Thought（CoT）：引导模型逐步推理，显著提升复杂推理任务效果",
+        "Structured Output：JSON Mode / Function Calling 强制结构化输出",
+        "System Prompt 设计：角色设定、行为约束、输出格式规范的最佳实践"
+      ],
+      "follow_up_directions": [
+        "Self-Consistency 和 Tree of Thoughts 是什么？",
+        "如何系统地评估和迭代 Prompt？"
+      ]
+    },
+    {
+      "id": "ai-trend-008",
+      "content": "请解释 LangGraph 和 LangChain 的关系与区别。什么场景下应该选择 LangGraph？",
+      "skill_tags": ["LangGraph", "LangChain", "Agent框架"],
+      "difficulty": "medium",
+      "reference_points": [
+        "LangChain：通用的 LLM 应用开发框架，核心是 Chain（DAG 流程编排）",
+        "LangGraph：LangChain 团队开发的有状态 Agent 编排框架，支持循环图和条件分支",
+        "关键区别：LangChain 的 Chain 是 DAG（无环图），LangGraph 支持有环图",
+        "LangGraph 的核心概念：StateGraph、Node（agent 函数）、Edge/ConditionalEdge、Checkpoint",
+        "适用场景：需要多轮交互、人在环中（human-in-the-loop）、多 Agent 协作的复杂工作流"
+      ],
+      "follow_up_directions": [
+        "LangGraph 的 Checkpoint 机制怎么工作？",
+        "和 CrewAI、AutoGen 相比 LangGraph 的优劣势？"
+      ]
+    },
+    {
+      "id": "ai-trend-009",
+      "content": "请介绍向量数据库的核心原理。常见的向量检索算法有哪些？各有什么优缺点？",
+      "skill_tags": ["向量数据库", "ANN", "检索"],
+      "difficulty": "medium",
+      "reference_points": [
+        "向量数据库存储高维向量，支持相似度搜索（余弦/欧氏/点积距离）",
+        "暴力搜索（Flat）：精确但 O(n) 慢",
+        "HNSW（分层可导航小世界图）：构建多层图结构，查询速度快，内存占用高",
+        "IVF（倒排文件索引）：聚类后只搜索相关簇，速度和精度可调",
+        "常见数据库：ChromaDB（轻量本地）、Milvus（分布式生产级）、Qdrant、Pinecone（云服务）"
+      ],
+      "follow_up_directions": [
+        "HNSW 和 IVF 各自适合什么规模的数据？",
+        "向量数据库如何处理增量更新？"
+      ]
+    },
+    {
+      "id": "ai-trend-010",
+      "content": "什么是 LLM 推理优化？请介绍几种常见的推理加速技术。",
+      "skill_tags": ["推理优化", "量化", "系统设计"],
+      "difficulty": "hard",
+      "reference_points": [
+        "KV Cache：缓存已计算的 Key/Value，避免重复计算，是自回归推理的核心优化",
+        "量化（Quantization）：FP16 → INT8/INT4，降低显存和计算量，GPTQ、AWQ 是常见方案",
+        "Flash Attention：IO 感知的注意力算法，减少 HBM 访问次数",
+        "连续批处理（Continuous Batching）：动态填充空位，提升 GPU 利用率",
+        "推理框架：vLLM（PagedAttention）、TensorRT-LLM、Ollama（本地部署）"
+      ],
+      "follow_up_directions": [
+        "PagedAttention 解决了什么问题？",
+        "Speculative Decoding 的原理是什么？"
+      ]
+    },
+    {
+      "id": "ai-trend-011",
+      "content": "请解释 AI 应用中的系统设计考量。如果让你设计一个高并发的 LLM 应用，你会怎么架构？",
+      "skill_tags": ["系统设计", "架构", "高并发"],
+      "difficulty": "hard",
+      "reference_points": [
+        "请求层：API Gateway + 负载均衡 + 速率限制",
+        "异步处理：消息队列（Redis/RabbitMQ）缓冲请求，解耦推理和响应",
+        "缓存策略：语义缓存（相似请求复用）、Prompt 缓存、KV Cache 共享",
+        "模型服务：多副本部署、自动扩缩容、模型版本管理",
+        "可观测性：延迟监控、Token 使用统计、质量评估 pipeline"
+      ],
+      "follow_up_directions": [
+        "语义缓存的命中率通常怎么样？",
+        "如何做 LLM 服务的 AB 测试？"
+      ]
+    },
+    {
+      "id": "ai-trend-012",
+      "content": "请介绍 Structured Output（结构化输出）在 LLM 应用中的重要性和实现方式。",
+      "skill_tags": ["Structured Output", "Pydantic", "LLM应用"],
+      "difficulty": "medium",
+      "reference_points": [
+        "问题：LLM 原始输出是自由文本，难以被程序直接使用",
+        "JSON Mode：强制模型输出合法 JSON",
+        "Function Calling / Tool Use：定义函数签名让模型填参数",
+        "Pydantic + Schema Hint：将数据模型 schema 注入 prompt，LLM 按格式输出后用 Pydantic 验证",
+        "重试与容错：输出验证失败时的重试策略、fallback 方案"
+      ],
+      "follow_up_directions": [
+        "如何处理 LLM 输出不符合 schema 的情况？",
+        "Instructor 库是怎么工作的？"
+      ]
+    },
+    {
+      "id": "ai-trend-013",
+      "content": "什么是 Agentic Workflow？和传统的 Chain 有什么本质区别？请举例说明。",
+      "skill_tags": ["Agent", "工作流", "架构设计"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Chain（链式）：线性执行，A→B→C，预设路径，不可回溯",
+        "Agentic Workflow：有循环、有条件分支、可自我反思和修正",
+        "四种核心模式：Reflection（自我反思）、Tool Use（工具调用）、Planning（规划）、Multi-Agent（多角色协作）",
+        "Human-in-the-loop：在关键节点加入人类审核/干预",
+        "示例：代码生成 Agent = 写代码 → 执行 → 看结果 → 如果报错则修改 → 再执行（循环）"
+      ],
+      "follow_up_directions": [
+        "Multi-Agent 和单 Agent 多工具的优劣对比？",
+        "如何评估 Agent 系统的质量？"
+      ]
+    },
+    {
+      "id": "ai-trend-014",
+      "content": "请介绍 LLM 的安全性和可靠性问题。常见的攻击方式和防御手段有哪些？",
+      "skill_tags": ["AI安全", "Prompt Injection", "对齐"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Prompt Injection：通过精心构造的输入绕过系统提示、执行非预期操作",
+        "Jailbreak：诱导模型忽略安全对齐，生成有害内容",
+        "幻觉（Hallucination）：模型生成看似合理但实际错误的内容",
+        "防御手段：输入过滤、输出审核、Guard Rails（如 Guardrails AI）、内容安全 API",
+        "Red Teaming：系统性测试模型的弱点和边界"
+      ],
+      "follow_up_directions": [
+        "如何在不影响用户体验的情况下做 prompt 安全过滤？",
+        "AI 安全和隐私保护在企业落地中有哪些实践？"
+      ]
+    },
+    {
+      "id": "ai-trend-015",
+      "content": "请介绍 AI 应用开发中的评估（Evaluation）方法论。如何系统地评估一个 LLM 应用的质量？",
+      "skill_tags": ["评估", "LLM应用", "质量保证"],
+      "difficulty": "hard",
+      "reference_points": [
+        "自动评估：用 LLM-as-Judge（GPT-4 评估其他模型输出），需要评估 Rubric",
+        "人工评估：众包标注、专家评审，成本高但最准确",
+        "RAG 评估：Faithfulness、Answer Relevancy、Context Precision/Recall（RAGAS 框架）",
+        "Agent 评估：任务完成率、步骤效率、工具选择准确率",
+        "持续评估：Golden Set 回归测试、A/B 测试、用户反馈闭环"
+      ],
+      "follow_up_directions": [
+        "LLM-as-Judge 的局限性是什么？",
+        "如何构建一个 LLM 应用的 CI/CD 评估 pipeline？"
+      ]
+    }
+  ]
+}

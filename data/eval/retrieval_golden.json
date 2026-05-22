@@ -1,0 +1,119 @@
+[
+  {
+    "name": "python_gil_concurrency",
+    "query": "Python GIL threading concurrency",
+    "queries": [
+      "Python GIL threading concurrency",
+      "Python multiprocessing asyncio concurrency"
+    ],
+    "expected_ids": ["py-001", "py-019"]
+  },
+  {
+    "name": "python_asyncio",
+    "query": "Python asyncio coroutine event loop",
+    "queries": [
+      "Python asyncio coroutine event loop",
+      "Python async programming concurrency"
+    ],
+    "expected_ids": ["py-004", "py-019"]
+  },
+  {
+    "name": "rag_system",
+    "query": "RAG retrieval augmented generation vector database",
+    "queries": [
+      "RAG retrieval augmented generation vector database",
+      "RAG chunking embedding rerank retrieval"
+    ],
+    "expected_ids": ["ml-003", "ml-019", "ai-trend-003", "rag-adv-003", "rag-adv-006", "rag-adv-021", "rag-adv-022"]
+  },
+  {
+    "name": "langgraph_agent",
+    "query": "LangGraph LangChain AI Agent workflow",
+    "queries": [
+      "LangGraph LangChain AI Agent workflow",
+      "Agent framework state graph tool calling"
+    ],
+    "expected_ids": ["ml-007", "ai-trend-008", "ai-trend-013", "aie-006", "aie-007"]
+  },
+  {
+    "name": "agent_architecture",
+    "query": "AI Agent planning memory tool calling architecture",
+    "queries": [
+      "AI Agent planning memory tool calling architecture",
+      "multi agent context engineering workflow"
+    ],
+    "expected_ids": ["ml-006", "ml-014", "ai-trend-001", "aie-006", "aie-007"]
+  },
+  {
+    "name": "vector_db_embedding",
+    "query": "embedding vector database ANN similarity search",
+    "queries": [
+      "embedding vector database ANN similarity search",
+      "vector index recall latency embedding retrieval"
+    ],
+    "expected_ids": ["ml-004", "ml-009", "ai-trend-009", "rag-adv-006", "rag-adv-021", "rag-adv-022"]
+  },
+  {
+    "name": "api_websocket_design",
+    "query": "API design WebSocket realtime communication system design",
+    "queries": [
+      "API design WebSocket realtime communication system design",
+      "backend API long connection websocket scaling"
+    ],
+    "expected_ids": ["sd-003", "sd-008", "aie-003"]
+  },
+  {
+    "name": "docker_deployment",
+    "query": "Docker container deployment system design",
+    "queries": [
+      "Docker container deployment system design",
+      "containerization image orchestration DevOps"
+    ],
+    "expected_ids": ["sd-012", "aie-016"]
+  },
+  {
+    "name": "tcp_http_network",
+    "query": "TCP handshake HTTP HTTPS DNS browser request",
+    "queries": [
+      "TCP three way handshake HTTPS DNS browser request",
+      "HTTP HTTPS TCP timeout backend network"
+    ],
+    "expected_ids": ["be-net-002", "be-net-003", "be-net-005", "be-net-011"]
+  },
+  {
+    "name": "os_concurrency_io",
+    "query": "operating system process thread epoll non blocking io deadlock",
+    "queries": [
+      "process thread context switch epoll non blocking io",
+      "deadlock mutex semaphore backend concurrency"
+    ],
+    "expected_ids": ["be-os-002", "be-os-003", "be-os-005", "be-os-007", "be-os-008", "be-os-013"]
+  },
+  {
+    "name": "mysql_index_transaction",
+    "query": "MySQL transaction isolation MVCC index slow SQL",
+    "queries": [
+      "database transaction isolation MVCC index optimization",
+      "MySQL composite index explain slow query"
+    ],
+    "expected_ids": ["be-db-001", "be-db-002", "be-db-003", "be-db-004", "be-db-005", "be-db-006"]
+  },
+  {
+    "name": "redis_cache_lock",
+    "query": "Redis cache penetration avalanche distributed lock rate limiting",
+    "queries": [
+      "Redis cache aside penetration breakdown avalanche",
+      "Redis distributed lock rate limiting memory eviction"
+    ],
+    "expected_ids": ["be-redis-002", "be-redis-003", "be-redis-004", "be-redis-008", "be-redis-009"]
+  },
+  {
+    "name": "message_queue_reliability",
+    "query": "message queue reliability duplicate message ordering backlog",
+    "queries": [
+      "message queue prevent message loss idempotent consumer ordering",
+      "Kafka consumer group backlog dead letter queue transactional message"
+    ],
+    "expected_ids": ["be-mq-002", "be-mq-003", "be-mq-004", "be-mq-005", "be-mq-007", "be-mq-008", "be-mq-009"]
+  }
+]

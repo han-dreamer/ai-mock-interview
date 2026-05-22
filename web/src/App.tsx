@@ -1,0 +1,849 @@
+import {
+  Activity,
+  AlertCircle,
+  ArrowLeft,
+  Bot,
+  Brain,
+  CheckCircle2,
+  CircleStop,
+  ClipboardList,
+  FileText,
+  KeyRound,
+  Loader2,
+  MessageSquareText,
+  Play,
+  RotateCcw,
+  Send,
+  Sparkles,
+  Upload,
+  User,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, RefObject } from "react";
+import { API_BASE_URL, checkHealth, startInterview, websocketUrl } from "./api";
+import type {
+  ChatItem,
+  CurrentTurn,
+  InterviewMode,
+  InterviewReport,
+  ResumeParseResult,
+  ServerMessage,
+} from "./types";
+
+const sampleJd = `岗位：AI 应用开发工程师
+
+岗位职责：
+1. 参与 AI Agent、RAG、智能问答和工作流编排等大模型应用的设计与开发；
+2. 使用 Python / FastAPI 构建后端服务，支持流式对话、文件上传、异步任务和 WebSocket 实时交互；
+3. 负责向量检索、Prompt Engineering、结构化输出、模型调用稳定性和效果评估；
+4. 与产品和前端协作，将原型能力落地为可演示、可部署的 AI 应用。
+
+岗位要求：
+- 熟悉 Python、FastAPI、LangChain/LangGraph 或同类 Agent 框架；
+- 理解 RAG 的切分、召回、重排、评估和工程化优化；
+- 熟悉 REST API、WebSocket、数据库和基础部署流程；
+- 有 AI 应用项目经验，能解释架构设计、异常处理和效果评估方法。`;
+
+type View = "setup" | "interview" | "report";
+type ConnectionState = "idle" | "connecting" | "open" | "closed" | "error";
+
+const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const modeName = (mode: InterviewMode) =>
+  mode === "professional" ? "专业面试模式" : "练习模式";
+
+const difficultyName = (difficulty?: string) => {
+  const map: Record<string, string> = {
+    easy: "基础",
+    medium: "中等",
+    hard: "进阶",
+  };
+  return difficulty ? (map[difficulty] ?? difficulty) : "";
+};
+
+const statusText = (stage: string, fallback: string) => {
+  const map: Record<string, string> = {
+    analyzing_jd: "正在分析 JD、简历和历史记忆，准备个性化问题。",
+    questions_ready: "问题已准备好，面试即将开始。",
+    resumed: "已恢复到当前面试进度。",
+    waiting: "正在等待下一轮问题。",
+    processing: "正在评估你的回答，并判断是否需要追问。",
+    evaluating: "正在结束面试并生成评估报告。",
+    pong: "连接正常。",
+  };
+  return map[stage] ?? fallback;
+};
+
+export function App() {
+  const [view, setView] = useState<View>("setup");
+  const [jdText, setJdText] = useState(sampleJd);
+  const [mode, setMode] = useState<InterviewMode>("professional");
+  const [maxFollowUps, setMaxFollowUps] = useState(2);
+  const [userId, setUserId] = useState("portfolio-user");
+  const [accessCode, setAccessCode] = useState(
+    () => localStorage.getItem("ai-mock-access-code") ?? import.meta.env.VITE_ACCESS_CODE ?? "",
+  );
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resume, setResume] = useState<ResumeParseResult | null>(null);
+  const [sessionId, setSessionId] = useState("");
+  const [messages, setMessages] = useState<ChatItem[]>([]);
+  const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [status, setStatus] = useState("填写 JD，可选上传简历后开始模拟面试。");
+  const [stage, setStage] = useState("ready");
+  const [error, setError] = useState("");
+  const [isStarting, setIsStarting] = useState(false);
+  const [isAwaitingAnswer, setIsAwaitingAnswer] = useState(false);
+  const [connection, setConnection] = useState<ConnectionState>("idle");
+  const [report, setReport] = useState<InterviewReport | null>(null);
+  const [health, setHealth] = useState<{ status: string; model?: string; debug?: boolean } | null>(
+    null,
+  );
+
+  const socketRef = useRef<WebSocket | null>(null);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    checkHealth().then(setHealth).catch(() => setHealth(null));
+  }, []);
+
+  useEffect(() => {
+    transcriptRef.current?.scrollTo({
+      top: transcriptRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, status]);
+
+  useEffect(() => {
+    return () => socketRef.current?.close();
+  }, []);
+
+  const canStart = jdText.trim().length >= 10 && !isStarting;
+
+  async function handleStart() {
+    if (!canStart) return;
+    setIsStarting(true);
+    setError("");
+    setStatus(resumeFile ? "正在上传并解析简历，请稍候。" : "正在创建面试会话。");
+    try {
+      const response = await startInterview({
+        jdText: jdText.trim(),
+        maxFollowUps,
+        mode,
+        userId: userId.trim() || "portfolio-user",
+        accessCode,
+        resumeFile,
+      });
+      if (accessCode.trim()) {
+        localStorage.setItem("ai-mock-access-code", accessCode.trim());
+      }
+      setSessionId(response.session_id);
+      setResume(response.resume ?? null);
+      setMessages([
+        {
+          id: uid(),
+          role: "system",
+          content:
+            response.mode === "professional"
+              ? "专业面试已创建。系统会结合 JD、简历和长期记忆，先进行项目深挖，再进入技术广度考察。"
+              : "练习面试已创建。系统会根据 JD 生成问题，并在报告中给出参考答案和学习建议。",
+        },
+      ]);
+      setView("interview");
+      connectSocket(response.session_id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "创建面试失败");
+      setStatus("创建会话失败，请检查访问码、后端服务或模型配置。");
+    } finally {
+      setIsStarting(false);
+    }
+  }
+
+  function connectSocket(id = sessionId) {
+    if (!id) return;
+    socketRef.current?.close();
+    setConnection("connecting");
+    setStatus("正在连接实时面试通道。");
+    const ws = new WebSocket(websocketUrl(id, accessCode));
+    socketRef.current = ws;
+
+    ws.onopen = () => {
+      setConnection("open");
+      setStatus("连接成功，面试官正在准备第一轮问题。");
+    };
+
+    ws.onmessage = (event) => {
+      const payload = JSON.parse(event.data) as ServerMessage;
+      handleServerMessage(payload);
+    };
+
+    ws.onerror = () => {
+      setConnection("error");
+      setError("WebSocket 连接异常，请稍后重连或检查后端服务。");
+    };
+
+    ws.onclose = () => {
+      setConnection((prev) => (prev === "error" ? "error" : "closed"));
+    };
+  }
+
+  function handleServerMessage(payload: ServerMessage) {
+    if (payload.type === "status") {
+      setStage(payload.stage);
+      setStatus(statusText(payload.stage, payload.message));
+      return;
+    }
+
+    if (payload.type === "question") {
+      setIsAwaitingAnswer(true);
+      setCurrentTurn({
+        questionIndex: payload.question_index,
+        totalQuestions: payload.total_questions,
+        skillTags: payload.skill_tags,
+        difficulty: payload.difficulty,
+      });
+      setStatus("请作答当前问题。");
+      setMessages((items) => [
+        ...items,
+        {
+          id: uid(),
+          role: "interviewer",
+          content: payload.content,
+          meta: `第 ${payload.question_index}/${payload.total_questions} 题 · ${difficultyName(
+            payload.difficulty,
+          )}`,
+        },
+      ]);
+      return;
+    }
+
+    if (payload.type === "follow_up") {
+      setIsAwaitingAnswer(true);
+      setCurrentTurn({
+        questionIndex: payload.question_index,
+        followUpNumber: payload.follow_up_number,
+      });
+      setStatus("面试官正在追问，请继续补充回答。");
+      setMessages((items) => [
+        ...items,
+        {
+          id: uid(),
+          role: "interviewer",
+          content: payload.content,
+          meta: `第 ${payload.question_index} 题追问 · 第 ${payload.follow_up_number} 次`,
+        },
+      ]);
+      return;
+    }
+
+    if (payload.type === "interview_end") {
+      setIsAwaitingAnswer(false);
+      setStatus("面试已结束，正在整理评估报告。");
+      setStage("evaluating");
+      return;
+    }
+
+    if (payload.type === "report") {
+      setReport(payload.data);
+      setStatus("报告已生成。");
+      setStage("completed");
+      setView("report");
+      return;
+    }
+
+    if (payload.type === "error") {
+      setError(payload.message);
+      setStatus("处理过程中出现错误，请查看提示后重试。");
+    }
+  }
+
+  function submitAnswer(event: FormEvent) {
+    event.preventDefault();
+    const content = answer.trim();
+    if (!content || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(JSON.stringify({ type: "answer", content }));
+    setMessages((items) => [...items, { id: uid(), role: "candidate", content }]);
+    setAnswer("");
+    setIsAwaitingAnswer(false);
+    setStatus("已提交回答，正在评估。");
+    setStage("processing");
+  }
+
+  function stopInterview() {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "stop" }));
+      setStatus("正在提前结束面试并生成阶段性报告。");
+      setIsAwaitingAnswer(false);
+    }
+  }
+
+  function resetAll() {
+    socketRef.current?.close();
+    setView("setup");
+    setSessionId("");
+    setMessages([]);
+    setCurrentTurn(null);
+    setAnswer("");
+    setStatus("填写 JD，可选上传简历后开始模拟面试。");
+    setStage("ready");
+    setError("");
+    setReport(null);
+    setResume(null);
+    setConnection("idle");
+  }
+
+  const progress = useMemo(() => {
+    if (!currentTurn?.questionIndex || !currentTurn.totalQuestions) return 0;
+    return Math.round((currentTurn.questionIndex / currentTurn.totalQuestions) * 100);
+  }, [currentTurn]);
+
+  return (
+    <main className="app-shell">
+      <div className="ambient ambient-left" />
+      <div className="ambient ambient-right" />
+      <header className="topbar">
+        <button className="brand" onClick={resetAll} title="回到开始页">
+          <span className="brand-mark">
+            <Brain size={18} />
+          </span>
+          <span>
+            <strong>AI Mock Interview</strong>
+            <small>JD 与简历驱动的 Agent 面试系统</small>
+          </span>
+        </button>
+        <div className="topbar-actions">
+          <StatusPill connection={connection} />
+          <span className="api-pill" title={API_BASE_URL}>
+            <Activity size={14} />
+            {health?.status === "ok" ? health.model ?? "后端在线" : "检查后端"}
+          </span>
+        </div>
+      </header>
+
+      {view === "setup" && (
+        <SetupPage
+          jdText={jdText}
+          setJdText={setJdText}
+          mode={mode}
+          setMode={setMode}
+          maxFollowUps={maxFollowUps}
+          setMaxFollowUps={setMaxFollowUps}
+          userId={userId}
+          setUserId={setUserId}
+          accessCode={accessCode}
+          setAccessCode={setAccessCode}
+          resumeFile={resumeFile}
+          setResumeFile={setResumeFile}
+          isStarting={isStarting}
+          canStart={canStart}
+          error={error}
+          onStart={handleStart}
+        />
+      )}
+
+      {view === "interview" && (
+        <InterviewPage
+          mode={mode}
+          sessionId={sessionId}
+          resume={resume}
+          status={status}
+          stage={stage}
+          error={error}
+          messages={messages}
+          currentTurn={currentTurn}
+          progress={progress}
+          answer={answer}
+          setAnswer={setAnswer}
+          isAwaitingAnswer={isAwaitingAnswer}
+          connection={connection}
+          transcriptRef={transcriptRef}
+          onSubmitAnswer={submitAnswer}
+          onStop={stopInterview}
+          onReconnect={() => connectSocket()}
+          onBack={() => setView("setup")}
+        />
+      )}
+
+      {view === "report" && report && (
+        <ReportPage
+          report={report}
+          mode={mode}
+          messages={messages}
+          onRestart={resetAll}
+          onBackToInterview={() => setView("interview")}
+        />
+      )}
+    </main>
+  );
+}
+
+function SetupPage(props: {
+  jdText: string;
+  setJdText: (value: string) => void;
+  mode: InterviewMode;
+  setMode: (value: InterviewMode) => void;
+  maxFollowUps: number;
+  setMaxFollowUps: (value: number) => void;
+  userId: string;
+  setUserId: (value: string) => void;
+  accessCode: string;
+  setAccessCode: (value: string) => void;
+  resumeFile: File | null;
+  setResumeFile: (file: File | null) => void;
+  isStarting: boolean;
+  canStart: boolean;
+  error: string;
+  onStart: () => void;
+}) {
+  return (
+    <section className="setup-layout">
+      <div className="setup-copy">
+        <span className="eyebrow">AI 模拟面试工作台</span>
+        <h1>把 JD 和简历变成一场可追问的技术面试</h1>
+        <p>
+          系统会分析岗位要求和候选人经历，结合 RAG 题库、长期记忆和多 Agent
+          工作流生成问题，并在实时对话后输出结构化评估报告。
+        </p>
+        <div className="signal-strip">
+          <span>JD / 简历驱动</span>
+          <span>RAG 个性化出题</span>
+          <span>WebSocket 实时面试</span>
+          <span>结构化评估报告</span>
+        </div>
+      </div>
+
+      <div className="setup-panel">
+        <div className="panel-heading">
+          <ClipboardList size={20} />
+          <div>
+            <h2>创建面试会话</h2>
+            <p>粘贴目标岗位 JD，专业模式下建议上传简历，以便系统进行项目深挖。</p>
+          </div>
+        </div>
+
+        <label className="field">
+          <span>岗位 JD</span>
+          <textarea
+            value={props.jdText}
+            onChange={(event) => props.setJdText(event.target.value)}
+            rows={9}
+            placeholder="粘贴目标岗位描述，包含职责、技能要求和经验要求。"
+          />
+        </label>
+
+        <div className="grid-2">
+          <label className="field">
+            <span>用户 ID</span>
+            <input
+              value={props.userId}
+              onChange={(event) => props.setUserId(event.target.value)}
+              placeholder="用于长期记忆，例如 demo-user"
+            />
+          </label>
+
+          <label className="field">
+            <span>每题最多追问</span>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              value={props.maxFollowUps}
+              onChange={(event) => props.setMaxFollowUps(Number(event.target.value))}
+            />
+          </label>
+        </div>
+
+        <label className="field">
+          <span>访问码</span>
+          <div className="access-input">
+            <KeyRound size={16} />
+            <input
+              value={props.accessCode}
+              onChange={(event) => props.setAccessCode(event.target.value)}
+              placeholder="公开试用环境需要填写，本地开发可留空"
+            />
+          </div>
+        </label>
+
+        <div className="mode-switch" aria-label="面试模式">
+          <button
+            className={props.mode === "professional" ? "active" : ""}
+            onClick={() => props.setMode("professional")}
+            type="button"
+          >
+            <Sparkles size={16} />
+            专业面试
+          </button>
+          <button
+            className={props.mode === "practice" ? "active" : ""}
+            onClick={() => props.setMode("practice")}
+            type="button"
+          >
+            <MessageSquareText size={16} />
+            练习模式
+          </button>
+        </div>
+
+        <label className="upload-box">
+          <Upload size={20} />
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={(event) => props.setResumeFile(event.target.files?.[0] ?? null)}
+          />
+          <span>{props.resumeFile ? props.resumeFile.name : "上传简历，可选 PDF / PNG / JPG"}</span>
+        </label>
+
+        {props.error && (
+          <div className="error-callout">
+            <AlertCircle size={16} />
+            {props.error}
+          </div>
+        )}
+
+        <button className="primary-action" disabled={!props.canStart} onClick={props.onStart}>
+          {props.isStarting ? <Loader2 className="spin" size={18} /> : <Play size={18} />}
+          {props.isStarting ? "正在启动" : "开始模拟面试"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function InterviewPage(props: {
+  mode: InterviewMode;
+  sessionId: string;
+  resume: ResumeParseResult | null;
+  status: string;
+  stage: string;
+  error: string;
+  messages: ChatItem[];
+  currentTurn: CurrentTurn | null;
+  progress: number;
+  answer: string;
+  setAnswer: (value: string) => void;
+  isAwaitingAnswer: boolean;
+  connection: ConnectionState;
+  transcriptRef: RefObject<HTMLDivElement | null>;
+  onSubmitAnswer: (event: FormEvent) => void;
+  onStop: () => void;
+  onReconnect: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <section className="workspace">
+      <aside className="sidebar">
+        <button className="ghost-button" onClick={props.onBack}>
+          <ArrowLeft size={16} />
+          返回设置
+        </button>
+
+        <div className="side-section">
+          <span className="side-label">会话</span>
+          <code>{props.sessionId.slice(0, 8) || "待创建"}</code>
+        </div>
+
+        <div className="side-section">
+          <span className="side-label">模式</span>
+          <strong>{modeName(props.mode)}</strong>
+        </div>
+
+        <div className="progress-box">
+          <div className="progress-head">
+            <span>面试进度</span>
+            <strong>{props.progress}%</strong>
+          </div>
+          <div className="progress-track">
+            <div style={{ width: `${props.progress}%` }} />
+          </div>
+          {props.currentTurn?.questionIndex && (
+            <p>
+              当前第 {props.currentTurn.questionIndex}
+              {props.currentTurn.totalQuestions ? ` / ${props.currentTurn.totalQuestions}` : ""} 题
+            </p>
+          )}
+        </div>
+
+        <div className="side-section">
+          <span className="side-label">当前状态</span>
+          <p>{props.status}</p>
+          <small>{props.stage}</small>
+        </div>
+
+        {props.currentTurn?.skillTags?.length ? (
+          <div className="side-section">
+            <span className="side-label">考察技能</span>
+            <div className="tag-list">
+              {props.currentTurn.skillTags.map((tag) => (
+                <span key={tag}>{tag}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {props.resume && (
+          <div className="resume-mini">
+            <FileText size={16} />
+            <span>简历已解析，将用于项目深挖和岗位匹配提问。</span>
+          </div>
+        )}
+      </aside>
+
+      <div className="interview-panel">
+        <div className="interview-header">
+          <div>
+            <h2>实时面试</h2>
+            <p>
+              请像真实面试一样作答。系统会根据你的回答判断是否追问、进入下一题或生成报告。
+            </p>
+          </div>
+          <div className="interview-actions">
+            {props.connection !== "open" && (
+              <button className="secondary-button" onClick={props.onReconnect}>
+                <RotateCcw size={16} />
+                重连
+              </button>
+            )}
+            <button className="danger-button" onClick={props.onStop}>
+              <CircleStop size={16} />
+              结束面试
+            </button>
+          </div>
+        </div>
+
+        {props.error && (
+          <div className="error-callout">
+            <AlertCircle size={16} />
+            {props.error}
+          </div>
+        )}
+
+        <div className="transcript" ref={props.transcriptRef}>
+          {props.messages.map((message) => (
+            <article className={`message ${message.role}`} key={message.id}>
+              <div className="avatar">
+                {message.role === "candidate" ? <User size={16} /> : <Bot size={16} />}
+              </div>
+              <div className="bubble">
+                {message.meta && <span className="message-meta">{message.meta}</span>}
+                <p>{message.content}</p>
+              </div>
+            </article>
+          ))}
+          {!props.isAwaitingAnswer && props.connection === "open" && (
+            <div className="thinking-line">
+              <Loader2 className="spin" size={16} />
+              {props.status}
+            </div>
+          )}
+        </div>
+
+        <form className="composer" onSubmit={props.onSubmitAnswer}>
+          <textarea
+            value={props.answer}
+            onChange={(event) => props.setAnswer(event.target.value)}
+            placeholder={props.isAwaitingAnswer ? "输入你的回答..." : "等待面试官提问..."}
+            rows={3}
+            disabled={!props.isAwaitingAnswer || props.connection !== "open"}
+          />
+          <button
+            className="send-button"
+            disabled={!props.answer.trim() || !props.isAwaitingAnswer || props.connection !== "open"}
+            type="submit"
+            title="发送回答"
+          >
+            <Send size={18} />
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function ReportPage(props: {
+  report: InterviewReport;
+  mode: InterviewMode;
+  messages: ChatItem[];
+  onRestart: () => void;
+  onBackToInterview: () => void;
+}) {
+  const skillScores = props.report.skill_scores ?? [];
+  const grade = props.report.grade ?? "?";
+  const overall = props.report.overall_score ?? 0;
+
+  function exportMarkdown() {
+    const lines = [
+      "# AI 模拟面试报告",
+      "",
+      `- 模式：${modeName(props.mode)}`,
+      `- 总分：${overall.toFixed(1)}/10`,
+      `- 等级：${grade}`,
+      "",
+      "## 总体评价",
+      props.report.overall_assessment ?? "",
+      "",
+      "## 技能评分",
+      ...skillScores.map((item) => `- ${item.skill_name}: ${item.score}/10 - ${item.evidence}`),
+      "",
+      "## 面试记录",
+      ...props.messages
+        .filter((item) => item.role !== "system")
+        .map((item) => `- ${item.role === "candidate" ? "候选人" : "面试官"}：${item.content}`),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "interview-report.md";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="report-layout">
+      <div className="report-hero">
+        <button className="ghost-button" onClick={props.onBackToInterview}>
+          <ArrowLeft size={16} />
+          返回面试记录
+        </button>
+        <div className="grade-lockup">
+          <span className={`grade grade-${grade}`}>{grade}</span>
+          <div>
+            <span className="eyebrow">面试报告</span>
+            <h1>{overall.toFixed(1)} / 10</h1>
+            <p>{props.report.overall_assessment}</p>
+          </div>
+        </div>
+        <div className="report-actions">
+          <button className="secondary-button" onClick={exportMarkdown}>
+            <FileText size={16} />
+            导出 Markdown
+          </button>
+          <button className="primary-small" onClick={props.onRestart}>
+            <RotateCcw size={16} />
+            重新开始
+          </button>
+        </div>
+      </div>
+
+      <div className="report-grid">
+        {props.report.hiring_recommendation && (
+          <section className="report-section span-2">
+            <h2>面试结论</h2>
+            <p className="recommendation">{props.report.hiring_recommendation}</p>
+          </section>
+        )}
+
+        {props.report.round_scores?.length ? (
+          <section className="report-section">
+            <h2>轮次表现</h2>
+            <div className="round-list">
+              {props.report.round_scores.map((round) => (
+                <div className="round-item" key={round.round_name}>
+                  <div>
+                    <strong>{round.round_name}</strong>
+                    <p>{round.summary}</p>
+                  </div>
+                  <span>{round.score.toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="report-section">
+          <h2>技能评分</h2>
+          <div className="skill-list">
+            {skillScores.map((skill) => (
+              <div className="skill-item" key={skill.skill_name}>
+                <div className="skill-head">
+                  <strong>{skill.skill_name}</strong>
+                  <span>{skill.score}/10</span>
+                </div>
+                <div className="score-track">
+                  <div style={{ width: `${Math.max(8, skill.score * 10)}%` }} />
+                </div>
+                <p>{skill.evidence}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <ReportList title="优势表现" items={props.report.strengths ?? []} positive />
+        <ReportList title="改进建议" items={props.report.improvements ?? []} />
+
+        {props.report.missed_knowledge?.length ? (
+          <section className="report-section span-2">
+            <h2>遗漏知识点</h2>
+            <div className="missed-list">
+              {props.report.missed_knowledge.map((item) => (
+                <details key={item.question}>
+                  <summary>
+                    <span>{item.question}</span>
+                    <strong>{item.score}/10</strong>
+                  </summary>
+                  <ul>
+                    {item.missed_points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                  <p>{item.reference_answer}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {props.report.study_suggestions?.length ? (
+          <section className="report-section span-2">
+            <h2>学习建议</h2>
+            <div className="suggestion-list">
+              {props.report.study_suggestions.map((item) => (
+                <span key={item}>
+                  <CheckCircle2 size={16} />
+                  {item}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ReportList(props: {
+  title: string;
+  items: { point: string; evidence: string }[];
+  positive?: boolean;
+}) {
+  return (
+    <section className="report-section">
+      <h2>{props.title}</h2>
+      <div className="highlight-list">
+        {props.items.map((item) => (
+          <article className={props.positive ? "positive" : ""} key={`${item.point}-${item.evidence}`}>
+            <strong>{item.point}</strong>
+            <p>{item.evidence}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StatusPill({ connection }: { connection: ConnectionState }) {
+  const label: Record<ConnectionState, string> = {
+    idle: "未连接",
+    connecting: "连接中",
+    open: "实时连接",
+    closed: "已断开",
+    error: "连接异常",
+  };
+  return (
+    <span className={`status-pill ${connection}`}>
+      <span />
+      {label[connection]}
+    </span>
+  );
+}

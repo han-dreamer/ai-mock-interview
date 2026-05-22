@@ -1,0 +1,61 @@
+{
+  "created_at": "20260511_122615",
+  "variant": "full",
+  "dataset": [
+    {
+      "user_input": "What is Parent-Child Chunking in RAG?",
+      "response": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context.",
+      "retrieved_contexts": [
+        "Source ID: rag-adv-001\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: What is Parent-Child Chunking in RAG, and why is it useful?\nReference points: [\"Child chunks are small retrieval units optimized for recall\", \"Parent documents are larger generation units that preserve full context\", \"Retrieval matches fine-grained evidence while generation receives coherent context\", \"It is useful for structured documents with sections, answers, or metadata\", \"A parent_id links each child chunk back to the source document\"]\nMatched chunks: [\"Interview question about RAG, Chunking, Parent-Child Retrieval\", \"Deep dive follow-up for RAG, Chunking, Parent-Child Retrieval\", \"How to evaluate a candidate on RAG, Chunking, Parent-Child Retrieval\", \"What is Parent-Child Chunking in RAG, and why is it useful?\", \"RAG retrieval chunking reranking evaluation interview question\"]",
+        "Source ID: rag-adv-015\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: How would you design source tracking in a parent-child RAG system?\nReference points: [\"Track parent document ids for user-facing citations\", \"Track child chunk ids for retrieval debugging\", \"Store chunk type and matched chunk text for explainability\", \"Validate that generated source ids come from the retrieved set\", \"Use source tracking in offline evaluation and manual review\"]\nMatched chunks: [\"RAG retrieval chunking reranking evaluation interview question\"]"
+      ],
+      "reference": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context."
+    },
+    {
+      "user_input": "How does structure-aware chunking differ from fixed-size chunking?",
+      "response": "Structure-aware chunking respects semantic fields such as title, section, question, answer, and metadata, while fixed-size chunking splits mainly by token or character count.",
+      "retrieved_contexts": [
+        "Source ID: rag-adv-002\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: How does structure-aware chunking differ from fixed-size chunking?\nReference points: [\"Fixed-size chunking splits by character or token count\", \"Structure-aware chunking respects semantic fields such as title, section, question, answer, and table\", \"It reduces the chance of cutting a useful unit in half\", \"It keeps metadata aligned with natural document boundaries\", \"It is especially suitable for JSON, Markdown, API docs, and question banks\"]\nMatched chunks: [\"How does structure-aware chunking differ from fixed-size chunking?\", \"Interview question about RAG, Chunking, Document Processing\", \"Deep dive follow-up for RAG, Chunking, Document Processing\", \"How to evaluate a candidate on RAG, Chunking, Document Processing\", \"RAG retrieval chunking reranking evaluation interview question\"]",
+        "Source ID: rag-adv-003\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: What is contextualized chunking in a RAG system?\nReference points: [\"Each chunk receives a compact header with source context\", \"Context can include document title, category, section path, skill tags, or parent question\", \"This makes isolated chunks more understandable to the embedding model\", \"It improves both vector retrieval and keyword retrieval\", \"The header should be concise to avoid diluting the actual chunk content\"]\nMatched chunks: [\"RAG retrieval chunking reranking evaluation interview question\"]"
+      ],
+      "reference": "Structure-aware chunking respects semantic fields such as title, section, question, answer, and metadata, while fixed-size chunking splits mainly by token or character count."
+    }
+  ],
+  "traces": [
+    {
+      "id": "ragas-001",
+      "question": "What is Parent-Child Chunking in RAG?",
+      "ground_truth": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context.",
+      "expected_source_ids": [
+        "rag-adv-001",
+        "rag-adv-010"
+      ],
+      "retrieved_source_ids": [
+        "rag-adv-001",
+        "rag-adv-015"
+      ],
+      "answer": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context.",
+      "contexts": [
+        "Source ID: rag-adv-001\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: What is Parent-Child Chunking in RAG, and why is it useful?\nReference points: [\"Child chunks are small retrieval units optimized for recall\", \"Parent documents are larger generation units that preserve full context\", \"Retrieval matches fine-grained evidence while generation receives coherent context\", \"It is useful for structured documents with sections, answers, or metadata\", \"A parent_id links each child chunk back to the source document\"]\nMatched chunks: [\"Interview question about RAG, Chunking, Parent-Child Retrieval\", \"Deep dive follow-up for RAG, Chunking, Parent-Child Retrieval\", \"How to evaluate a candidate on RAG, Chunking, Parent-Child Retrieval\", \"What is Parent-Child Chunking in RAG, and why is it useful?\", \"RAG retrieval chunking reranking evaluation interview question\"]",
+        "Source ID: rag-adv-015\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: How would you design source tracking in a parent-child RAG system?\nReference points: [\"Track parent document ids for user-facing citations\", \"Track child chunk ids for retrieval debugging\", \"Store chunk type and matched chunk text for explainability\", \"Validate that generated source ids come from the retrieved set\", \"Use source tracking in offline evaluation and manual review\"]\nMatched chunks: [\"RAG retrieval chunking reranking evaluation interview question\"]"
+      ]
+    },
+    {
+      "id": "ragas-002",
+      "question": "How does structure-aware chunking differ from fixed-size chunking?",
+      "ground_truth": "Structure-aware chunking respects semantic fields such as title, section, question, answer, and metadata, while fixed-size chunking splits mainly by token or character count.",
+      "expected_source_ids": [
+        "rag-adv-002"
+      ],
+      "retrieved_source_ids": [
+        "rag-adv-002",
+        "rag-adv-003"
+      ],
+      "answer": "Structure-aware chunking respects semantic fields such as title, section, question, answer, and metadata, while fixed-size chunking splits mainly by token or character count.",
+      "contexts": [
+        "Source ID: rag-adv-002\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: How does structure-aware chunking differ from fixed-size chunking?\nReference points: [\"Fixed-size chunking splits by character or token count\", \"Structure-aware chunking respects semantic fields such as title, section, question, answer, and table\", \"It reduces the chance of cutting a useful unit in half\", \"It keeps metadata aligned with natural document boundaries\", \"It is especially suitable for JSON, Markdown, API docs, and question banks\"]\nMatched chunks: [\"How does structure-aware chunking differ from fixed-size chunking?\", \"Interview question about RAG, Chunking, Document Processing\", \"Deep dive follow-up for RAG, Chunking, Document Processing\", \"How to evaluate a candidate on RAG, Chunking, Document Processing\", \"RAG retrieval chunking reranking evaluation interview question\"]",
+        "Source ID: rag-adv-003\nCategory: Advanced RAG Patterns\nDifficulty: medium\nQuestion or topic: What is contextualized chunking in a RAG system?\nReference points: [\"Each chunk receives a compact header with source context\", \"Context can include document title, category, section path, skill tags, or parent question\", \"This makes isolated chunks more understandable to the embedding model\", \"It improves both vector retrieval and keyword retrieval\", \"The header should be concise to avoid diluting the actual chunk content\"]\nMatched chunks: [\"RAG retrieval chunking reranking evaluation interview question\"]"
+      ]
+    }
+  ]
+}

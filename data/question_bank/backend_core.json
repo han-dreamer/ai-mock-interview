@@ -1,0 +1,1281 @@
+{
+  "category": "Backend Core",
+  "description": "Backend interview questions covering computer networks, operating systems, databases, Redis, and message queues.",
+  "questions": [
+    {
+      "id": "be-net-001",
+      "content": "Explain the TCP/IP layered model and why network protocols are layered.",
+      "skill_tags": ["Computer Networks", "TCP/IP", "Network Layering"],
+      "difficulty": "easy",
+      "reference_points": [
+        "TCP/IP is commonly described as application, transport, network, and network interface layers",
+        "Layering separates responsibilities and hides implementation details between layers",
+        "It improves maintainability because each layer can evolve behind stable interfaces",
+        "Application protocols such as HTTP run above transport protocols such as TCP or UDP",
+        "The model helps debug network issues by locating the failing layer"
+      ],
+      "follow_up_directions": [
+        "How does TCP/IP map to the OSI model?",
+        "Which layer is responsible for routing?"
+      ]
+    },
+    {
+      "id": "be-net-002",
+      "content": "What happens after a user enters a URL in a browser and presses Enter?",
+      "skill_tags": ["Computer Networks", "HTTP", "DNS", "TCP"],
+      "difficulty": "medium",
+      "reference_points": [
+        "The browser parses the URL and checks cache, HSTS, and local DNS information",
+        "DNS resolves the domain name to an IP address",
+        "The client establishes a TCP connection and may perform a TLS handshake for HTTPS",
+        "The browser sends an HTTP request and receives an HTTP response",
+        "The browser parses HTML, downloads subresources, executes scripts, and renders the page"
+      ],
+      "follow_up_directions": [
+        "Where can latency be reduced in this process?",
+        "How does HTTPS change the connection setup?"
+      ]
+    },
+    {
+      "id": "be-net-003",
+      "content": "Compare HTTP and HTTPS from a backend engineering perspective.",
+      "skill_tags": ["Computer Networks", "HTTP", "HTTPS", "TLS"],
+      "difficulty": "easy",
+      "reference_points": [
+        "HTTPS is HTTP over TLS and provides encryption, integrity, and server authentication",
+        "HTTP commonly uses port 80, while HTTPS commonly uses port 443",
+        "TLS introduces handshake overhead but protects sensitive data in transit",
+        "Certificates and certificate chains are required for server identity verification",
+        "Backend services should enforce HTTPS for login, payment, and private data APIs"
+      ],
+      "follow_up_directions": [
+        "What is the role of a CA?",
+        "How does TLS termination work behind a load balancer?"
+      ]
+    },
+    {
+      "id": "be-net-004",
+      "content": "What is the difference between HTTP/1.1, HTTP/2, and HTTP/3?",
+      "skill_tags": ["Computer Networks", "HTTP", "HTTP/2", "HTTP/3"],
+      "difficulty": "medium",
+      "reference_points": [
+        "HTTP/1.1 supports persistent connections but can suffer application-level head-of-line blocking",
+        "HTTP/2 introduces binary framing, multiplexing, and header compression over TCP",
+        "HTTP/2 still suffers from TCP-level head-of-line blocking when packet loss occurs",
+        "HTTP/3 uses QUIC over UDP and improves connection setup and stream independence",
+        "Protocol choice affects latency, connection reuse, and behavior under packet loss"
+      ],
+      "follow_up_directions": [
+        "Why does HTTP/2 still have head-of-line blocking?",
+        "What is QUIC connection migration?"
+      ]
+    },
+    {
+      "id": "be-net-005",
+      "content": "Explain the TCP three-way handshake and why two handshakes are not enough.",
+      "skill_tags": ["Computer Networks", "TCP", "Connection Management"],
+      "difficulty": "medium",
+      "reference_points": [
+        "The client sends SYN to request a connection",
+        "The server replies with SYN-ACK to acknowledge and advertise its own sequence number",
+        "The client sends ACK to confirm the server sequence number",
+        "The process synchronizes initial sequence numbers in both directions",
+        "Two handshakes cannot reliably prove that both sides can send and receive"
+      ],
+      "follow_up_directions": [
+        "What is SYN flood?",
+        "How do TCP sequence numbers help reliability?"
+      ]
+    },
+    {
+      "id": "be-net-006",
+      "content": "Explain TCP four-way connection termination and the purpose of TIME_WAIT.",
+      "skill_tags": ["Computer Networks", "TCP", "TIME_WAIT"],
+      "difficulty": "medium",
+      "reference_points": [
+        "TCP closes each direction of a full-duplex connection independently",
+        "The active closer sends FIN and receives ACK",
+        "The peer later sends its own FIN and receives the final ACK",
+        "TIME_WAIT lets delayed packets expire and allows retransmission of the final ACK",
+        "Too many TIME_WAIT sockets can indicate connection churn or missing connection reuse"
+      ],
+      "follow_up_directions": [
+        "Why is TIME_WAIT usually on the active closer?",
+        "How would you reduce excessive short connections?"
+      ]
+    },
+    {
+      "id": "be-net-007",
+      "content": "Compare TCP and UDP and give backend scenarios for each.",
+      "skill_tags": ["Computer Networks", "TCP", "UDP"],
+      "difficulty": "easy",
+      "reference_points": [
+        "TCP is connection-oriented and provides reliable ordered byte streams",
+        "UDP is connectionless and has lower overhead but no built-in reliability",
+        "HTTP/1.1 and HTTP/2 commonly use TCP, while DNS often uses UDP",
+        "Real-time media, metrics, and some gaming scenarios can prefer UDP",
+        "QUIC adds reliability and security features on top of UDP"
+      ],
+      "follow_up_directions": [
+        "Why does DNS often use UDP?",
+        "Can UDP be reliable at the application layer?"
+      ]
+    },
+    {
+      "id": "be-net-008",
+      "content": "How does DNS resolution work, and what can go wrong in production?",
+      "skill_tags": ["Computer Networks", "DNS", "Production Debugging"],
+      "difficulty": "medium",
+      "reference_points": [
+        "DNS translates domain names into IP addresses through recursive and authoritative resolvers",
+        "Clients and resolvers cache results based on TTL",
+        "Failures can come from expired records, wrong CNAME chains, resolver issues, or DNS pollution",
+        "Low TTL improves agility but increases resolver load",
+        "Production debugging should inspect local cache, resolver response, authoritative records, and network reachability"
+      ],
+      "follow_up_directions": [
+        "How would you migrate traffic using DNS?",
+        "What is the risk of setting TTL too high?"
+      ]
+    },
+    {
+      "id": "be-net-009",
+      "content": "What is the difference between WebSocket, HTTP polling, and Server-Sent Events?",
+      "skill_tags": ["Computer Networks", "WebSocket", "SSE", "HTTP"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Polling repeatedly sends HTTP requests and is simple but inefficient for real-time updates",
+        "SSE uses one-way server-to-client streaming over HTTP",
+        "WebSocket provides full-duplex communication after an upgrade handshake",
+        "WebSocket is suitable for chat, interviews, dashboards, and collaborative tools",
+        "SSE can be simpler when only server-to-client token streaming is needed"
+      ],
+      "follow_up_directions": [
+        "Which one would you choose for LLM token streaming?",
+        "How would you handle WebSocket reconnection?"
+      ]
+    },
+    {
+      "id": "be-net-010",
+      "content": "What are common HTTP status codes a backend developer should know?",
+      "skill_tags": ["Computer Networks", "HTTP", "API Design"],
+      "difficulty": "easy",
+      "reference_points": [
+        "2xx means successful handling, such as 200 OK and 201 Created",
+        "3xx indicates redirection or cache-related behavior",
+        "4xx means client-side request issues such as 400, 401, 403, 404, and 409",
+        "5xx means server-side failures such as 500, 502, 503, and 504",
+        "Choosing accurate status codes improves client behavior and API observability"
+      ],
+      "follow_up_directions": [
+        "When would you use 409?",
+        "What is the difference between 401 and 403?"
+      ]
+    },
+    {
+      "id": "be-net-011",
+      "content": "How would you debug a backend API that occasionally times out?",
+      "skill_tags": ["Computer Networks", "API Debugging", "Timeout"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Check client timeout, gateway timeout, service timeout, and database timeout settings",
+        "Use tracing to locate slow spans across network, application, cache, and database",
+        "Inspect connection pool exhaustion and slow DNS or TLS handshakes",
+        "Check whether retries amplify traffic during partial failures",
+        "Add request ids and latency percentiles for observability"
+      ],
+      "follow_up_directions": [
+        "How would you set timeout budgets across services?",
+        "Why can retries make an outage worse?"
+      ]
+    },
+    {
+      "id": "be-net-012",
+      "content": "What is head-of-line blocking, and where can it appear?",
+      "skill_tags": ["Computer Networks", "HTTP", "TCP", "Performance"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Head-of-line blocking means later work is blocked by earlier work in the same queue or stream",
+        "HTTP/1.1 can suffer when responses share one connection sequentially",
+        "HTTP/2 solves application-level multiplexing but packet loss can still block at TCP level",
+        "Message queues and database locks can also create similar blocking patterns",
+        "Mitigations include multiplexing, connection pools, sharding, and independent streams"
+      ],
+      "follow_up_directions": [
+        "How does QUIC reduce this issue?",
+        "Can a database lock create head-of-line blocking?"
+      ]
+    },
+    {
+      "id": "be-net-013",
+      "content": "How do load balancers distribute traffic, and what problems should backend services consider?",
+      "skill_tags": ["Computer Networks", "Load Balancing", "Backend"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Common strategies include round robin, weighted round robin, least connections, and consistent hashing",
+        "Health checks prevent routing traffic to unhealthy instances",
+        "Sticky sessions can simplify stateful apps but reduce flexibility",
+        "Backend services should be stateless or store session state externally",
+        "Load balancers must handle timeouts, retries, TLS termination, and connection reuse carefully"
+      ],
+      "follow_up_directions": [
+        "When would you use consistent hashing?",
+        "Why are sticky sessions risky?"
+      ]
+    },
+    {
+      "id": "be-net-014",
+      "content": "What is CORS, and why do frontend-backend applications encounter it?",
+      "skill_tags": ["Computer Networks", "HTTP", "CORS", "Frontend Backend"],
+      "difficulty": "easy",
+      "reference_points": [
+        "CORS is a browser security mechanism for cross-origin requests",
+        "The server must explicitly allow origins, methods, and headers",
+        "Some requests trigger a preflight OPTIONS request",
+        "CORS errors are enforced by browsers, not usually by backend HTTP clients",
+        "Overly permissive CORS settings can create security risk"
+      ],
+      "follow_up_directions": [
+        "What triggers a preflight request?",
+        "Why does curl not reproduce a browser CORS error?"
+      ]
+    },
+    {
+      "id": "be-net-015",
+      "content": "How would you design API timeout, retry, and circuit breaker policies between microservices?",
+      "skill_tags": ["Computer Networks", "Microservices", "Reliability"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Timeouts should be shorter than upstream deadlines and based on latency percentiles",
+        "Retries should be bounded, jittered, and only used for idempotent operations",
+        "Circuit breakers fail fast when a dependency is unhealthy",
+        "Bulkheads prevent one dependency from exhausting all resources",
+        "Policies should be observable and tested under partial failure"
+      ],
+      "follow_up_directions": [
+        "How would you avoid retry storms?",
+        "What makes an API operation idempotent?"
+      ]
+    },
+    {
+      "id": "be-os-001",
+      "content": "What is the role of an operating system in backend application execution?",
+      "skill_tags": ["Operating System", "Kernel", "Backend"],
+      "difficulty": "easy",
+      "reference_points": [
+        "The OS manages CPU, memory, files, devices, network, and security",
+        "Applications interact with hardware through system calls and OS abstractions",
+        "The kernel handles privileged operations such as memory management and I/O",
+        "Backend performance is affected by scheduling, networking, file systems, and memory pressure",
+        "Understanding OS behavior helps debug latency, resource leaks, and deployment issues"
+      ],
+      "follow_up_directions": [
+        "What is a system call?",
+        "Why does kernel mode have higher privileges?"
+      ]
+    },
+    {
+      "id": "be-os-002",
+      "content": "Compare process and thread from the perspective of a backend service.",
+      "skill_tags": ["Operating System", "Process", "Thread", "Concurrency"],
+      "difficulty": "easy",
+      "reference_points": [
+        "A process has its own address space and resources",
+        "Threads share process memory but have separate stacks and execution contexts",
+        "Thread switching is usually cheaper than process switching",
+        "Shared memory makes threads efficient but increases synchronization risk",
+        "Backend servers often use processes, threads, async tasks, or a mixture"
+      ],
+      "follow_up_directions": [
+        "Why can threads affect each other more easily?",
+        "How does Python concurrency complicate this topic?"
+      ]
+    },
+    {
+      "id": "be-os-003",
+      "content": "What is a context switch, and why does it matter for high-concurrency backend systems?",
+      "skill_tags": ["Operating System", "Context Switch", "Concurrency"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A context switch saves one execution context and restores another",
+        "It can happen between processes or threads",
+        "Switching has CPU overhead and can affect cache locality",
+        "Too many runnable threads can cause scheduling overhead",
+        "Async I/O and reasonable thread pools can reduce unnecessary switching"
+      ],
+      "follow_up_directions": [
+        "How would you detect excessive context switches?",
+        "Why can too many threads reduce throughput?"
+      ]
+    },
+    {
+      "id": "be-os-004",
+      "content": "Explain user mode, kernel mode, and system calls.",
+      "skill_tags": ["Operating System", "Kernel", "System Call"],
+      "difficulty": "medium",
+      "reference_points": [
+        "User mode has limited privileges and runs application code",
+        "Kernel mode has privileged access to hardware and core OS resources",
+        "System calls let user programs request privileged services",
+        "Examples include file I/O, network I/O, process creation, and memory mapping",
+        "Crossing the user-kernel boundary has overhead, so batching and buffering can help performance"
+      ],
+      "follow_up_directions": [
+        "Why should applications minimize unnecessary system calls?",
+        "What happens during a network read system call?"
+      ]
+    },
+    {
+      "id": "be-os-005",
+      "content": "What is deadlock, and what are the necessary conditions for it?",
+      "skill_tags": ["Operating System", "Deadlock", "Concurrency"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Deadlock means tasks wait forever for resources held by each other",
+        "Necessary conditions include mutual exclusion, hold and wait, no preemption, and circular wait",
+        "It can appear in threads, database transactions, distributed locks, and message processing",
+        "Prevention can break one of the necessary conditions",
+        "Detection requires monitoring wait graphs, timeouts, or lock diagnostics"
+      ],
+      "follow_up_directions": [
+        "How can lock ordering prevent deadlock?",
+        "How does database deadlock detection work?"
+      ]
+    },
+    {
+      "id": "be-os-006",
+      "content": "What is virtual memory, and why is it important?",
+      "skill_tags": ["Operating System", "Virtual Memory", "Memory Management"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Virtual memory gives each process an isolated logical address space",
+        "The OS and hardware translate virtual addresses to physical addresses",
+        "It improves isolation, simplifies memory allocation, and enables demand paging",
+        "Pages can be swapped or loaded lazily from disk",
+        "Memory pressure and page faults can cause severe backend latency"
+      ],
+      "follow_up_directions": [
+        "What is a page fault?",
+        "Why can swapping hurt service latency?"
+      ]
+    },
+    {
+      "id": "be-os-007",
+      "content": "What is the difference between blocking I/O, non-blocking I/O, and I/O multiplexing?",
+      "skill_tags": ["Operating System", "I/O", "epoll", "Backend"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Blocking I/O waits until the operation is ready or complete",
+        "Non-blocking I/O returns immediately when data is not ready",
+        "I/O multiplexing lets one thread watch many file descriptors",
+        "select, poll, and epoll are common mechanisms on Unix-like systems",
+        "High-concurrency servers often use event loops built on multiplexing"
+      ],
+      "follow_up_directions": [
+        "Why is epoll efficient for many connections?",
+        "How does this relate to asyncio or Node.js?"
+      ]
+    },
+    {
+      "id": "be-os-008",
+      "content": "Explain epoll and why it is useful for high-concurrency network services.",
+      "skill_tags": ["Operating System", "epoll", "Network I/O"],
+      "difficulty": "hard",
+      "reference_points": [
+        "epoll lets applications monitor many file descriptors for readiness events",
+        "It avoids scanning all descriptors on every wait like older select-style approaches",
+        "It supports level-triggered and edge-triggered modes",
+        "It is commonly used by high-performance servers and event loops",
+        "Correct edge-triggered usage requires draining data until EAGAIN"
+      ],
+      "follow_up_directions": [
+        "Compare level-triggered and edge-triggered modes",
+        "What bugs can happen if edge-triggered reads are not drained?"
+      ]
+    },
+    {
+      "id": "be-os-009",
+      "content": "What is the difference between concurrency and parallelism?",
+      "skill_tags": ["Operating System", "Concurrency", "Parallelism"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Concurrency means handling multiple tasks in overlapping time periods",
+        "Parallelism means executing multiple tasks at the same instant on multiple cores",
+        "Single-threaded async programs can be concurrent without being parallel",
+        "CPU-bound work benefits from parallelism",
+        "I/O-bound backend work often benefits from concurrency and event-driven design"
+      ],
+      "follow_up_directions": [
+        "Is async I/O parallel?",
+        "How would you handle CPU-bound tasks in a Python backend?"
+      ]
+    },
+    {
+      "id": "be-os-010",
+      "content": "How would you diagnose high CPU usage in a backend service?",
+      "skill_tags": ["Operating System", "Performance", "Debugging"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Check process-level and thread-level CPU usage",
+        "Use profiling to identify hot functions or tight loops",
+        "Inspect recent traffic patterns, retry storms, and background jobs",
+        "Check whether garbage collection, serialization, or compression dominates CPU",
+        "Correlate CPU usage with latency and error metrics"
+      ],
+      "follow_up_directions": [
+        "How would you distinguish user CPU from system CPU?",
+        "What would high system CPU indicate?"
+      ]
+    },
+    {
+      "id": "be-os-011",
+      "content": "How would you diagnose memory leaks or memory pressure in a service?",
+      "skill_tags": ["Operating System", "Memory", "Debugging"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Observe RSS, heap usage, object counts, and container memory limits",
+        "Take heap snapshots or use language-specific profilers",
+        "Check caches, global collections, unclosed resources, and large request buffers",
+        "Look for swap usage and page faults under memory pressure",
+        "Set alerts before out-of-memory kills happen"
+      ],
+      "follow_up_directions": [
+        "What is the difference between heap and RSS?",
+        "How can an unbounded cache become a memory leak?"
+      ]
+    },
+    {
+      "id": "be-os-012",
+      "content": "What is a file descriptor, and why can backend services run out of them?",
+      "skill_tags": ["Operating System", "File Descriptor", "Network"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A file descriptor is an OS handle for files, sockets, pipes, and other I/O resources",
+        "Each open network connection usually consumes a descriptor",
+        "Leaks can occur when files or sockets are not closed",
+        "High concurrency may exceed per-process or system limits",
+        "Monitoring open descriptors and using connection pooling can prevent failures"
+      ],
+      "follow_up_directions": [
+        "What symptoms appear when descriptors are exhausted?",
+        "How would you inspect open descriptors on Linux?"
+      ]
+    },
+    {
+      "id": "be-os-013",
+      "content": "What is the difference between a mutex, semaphore, and condition variable?",
+      "skill_tags": ["Operating System", "Synchronization", "Concurrency"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A mutex protects a critical section with exclusive ownership",
+        "A semaphore manages a count of available resources",
+        "A condition variable lets threads wait for a condition while releasing a lock",
+        "Misuse can cause deadlocks, missed signals, or race conditions",
+        "Backend examples include connection pools, worker queues, and shared caches"
+      ],
+      "follow_up_directions": [
+        "When would you use a semaphore for a connection pool?",
+        "What is a spurious wakeup?"
+      ]
+    },
+    {
+      "id": "be-os-014",
+      "content": "How do containers relate to operating system isolation?",
+      "skill_tags": ["Operating System", "Containers", "Linux"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Containers share the host kernel but isolate processes using namespaces",
+        "cgroups limit and account for CPU, memory, and other resources",
+        "File systems are layered through image and overlay mechanisms",
+        "Containers are lighter than virtual machines but provide weaker isolation boundaries",
+        "Backend services must respect container memory and CPU limits"
+      ],
+      "follow_up_directions": [
+        "What happens when a container exceeds its memory limit?",
+        "Why can CPU limits affect latency?"
+      ]
+    },
+    {
+      "id": "be-os-015",
+      "content": "How would you explain event loops in backend frameworks?",
+      "skill_tags": ["Operating System", "Event Loop", "Async I/O"],
+      "difficulty": "medium",
+      "reference_points": [
+        "An event loop waits for I/O readiness and dispatches callbacks or coroutines",
+        "It allows many concurrent I/O operations with fewer threads",
+        "Blocking CPU work inside the event loop hurts all concurrent requests",
+        "Async frameworks still need thread or process pools for blocking operations",
+        "Correct timeout, cancellation, and backpressure handling are important"
+      ],
+      "follow_up_directions": [
+        "Why should database drivers be async-compatible?",
+        "How would you handle CPU-heavy work in an event loop service?"
+      ]
+    },
+    {
+      "id": "be-db-001",
+      "content": "What properties does a database transaction provide?",
+      "skill_tags": ["Database", "Transaction", "ACID"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Atomicity means all operations commit together or roll back together",
+        "Consistency means constraints and invariants are preserved",
+        "Isolation controls how concurrent transactions observe each other",
+        "Durability means committed data survives crashes",
+        "Backend code should understand which guarantees the database and isolation level actually provide"
+      ],
+      "follow_up_directions": [
+        "Which ACID property is most related to isolation levels?",
+        "How can distributed transactions complicate ACID?"
+      ]
+    },
+    {
+      "id": "be-db-002",
+      "content": "Explain common transaction isolation levels and anomalies.",
+      "skill_tags": ["Database", "Isolation Level", "Transaction"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Read uncommitted can allow dirty reads",
+        "Read committed prevents dirty reads but may allow non-repeatable reads",
+        "Repeatable read prevents non-repeatable reads and often uses MVCC",
+        "Serializable provides the strongest isolation but may reduce concurrency",
+        "Anomalies include dirty read, non-repeatable read, phantom read, and write skew"
+      ],
+      "follow_up_directions": [
+        "What isolation level does MySQL InnoDB commonly use by default?",
+        "What is a phantom read?"
+      ]
+    },
+    {
+      "id": "be-db-003",
+      "content": "What is MVCC, and how does it improve database concurrency?",
+      "skill_tags": ["Database", "MVCC", "Transaction"],
+      "difficulty": "medium",
+      "reference_points": [
+        "MVCC keeps multiple versions of rows to support consistent reads",
+        "Readers can avoid blocking writers in many scenarios",
+        "Transactions read a snapshot based on visibility rules",
+        "Old versions require cleanup such as purge or vacuum mechanisms",
+        "MVCC improves read concurrency but does not remove all locking needs"
+      ],
+      "follow_up_directions": [
+        "How does MVCC relate to undo logs?",
+        "Can MVCC prevent all write conflicts?"
+      ]
+    },
+    {
+      "id": "be-db-004",
+      "content": "Why are database indexes useful, and what tradeoffs do they introduce?",
+      "skill_tags": ["Database", "Index", "Performance"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Indexes reduce the amount of data scanned for queries",
+        "B+ tree indexes support range queries and ordered traversal",
+        "Indexes speed up reads but add write overhead and storage cost",
+        "Too many indexes slow inserts, updates, and deletes",
+        "Index design should follow actual query patterns"
+      ],
+      "follow_up_directions": [
+        "Why is a B+ tree suitable for databases?",
+        "How would you identify unused indexes?"
+      ]
+    },
+    {
+      "id": "be-db-005",
+      "content": "What is the leftmost prefix rule for composite indexes?",
+      "skill_tags": ["Database", "Index", "MySQL"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A composite index can be used efficiently from its leftmost columns",
+        "Skipping the leading column usually prevents full use of the index",
+        "Range conditions can limit the usefulness of later columns",
+        "Column order should match common equality, range, and sorting patterns",
+        "Explain plans should be checked rather than assuming index usage"
+      ],
+      "follow_up_directions": [
+        "How would you order columns in a composite index?",
+        "Why can a range condition stop further index use?"
+      ]
+    },
+    {
+      "id": "be-db-006",
+      "content": "How would you analyze a slow SQL query?",
+      "skill_tags": ["Database", "SQL Optimization", "Explain"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Capture the slow query and representative parameters",
+        "Use EXPLAIN or execution plans to inspect scan type, rows, join order, and index usage",
+        "Check whether predicates, sorting, grouping, or joins miss suitable indexes",
+        "Inspect data distribution, table statistics, and returned row count",
+        "Consider query rewrite, index changes, pagination strategy, or denormalization"
+      ],
+      "follow_up_directions": [
+        "What does a full table scan indicate?",
+        "How can pagination become slow?"
+      ]
+    },
+    {
+      "id": "be-db-007",
+      "content": "What is the difference between clustered and secondary indexes in InnoDB?",
+      "skill_tags": ["Database", "MySQL", "InnoDB", "Index"],
+      "difficulty": "medium",
+      "reference_points": [
+        "InnoDB stores table data in the clustered index organized by primary key",
+        "A secondary index stores indexed columns plus the primary key value",
+        "Looking up non-covered columns through a secondary index requires a back-to-table lookup",
+        "Primary key choice affects storage locality and secondary index size",
+        "A covering index can avoid extra lookups"
+      ],
+      "follow_up_directions": [
+        "Why should primary keys be short and stable?",
+        "What is a covering index?"
+      ]
+    },
+    {
+      "id": "be-db-008",
+      "content": "What is a covering index, and when is it useful?",
+      "skill_tags": ["Database", "Index", "SQL Optimization"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A covering index contains all columns needed by a query",
+        "The database can answer the query from the index without reading table rows",
+        "It can improve read latency for high-frequency queries",
+        "It increases index size and write cost",
+        "It is most useful for narrow query projections and stable access patterns"
+      ],
+      "follow_up_directions": [
+        "How can SELECT * prevent covering index benefits?",
+        "What is the cost of adding covering indexes?"
+      ]
+    },
+    {
+      "id": "be-db-009",
+      "content": "How would you design pagination for large tables?",
+      "skill_tags": ["Database", "Pagination", "Performance"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Offset pagination becomes slow when offset is large because many rows are skipped",
+        "Keyset pagination uses a stable cursor such as id or created_at",
+        "The cursor column should be indexed and deterministic",
+        "Sorting must be stable to avoid missing or duplicated rows",
+        "Frontend requirements determine whether jumping to arbitrary pages is needed"
+      ],
+      "follow_up_directions": [
+        "Why is LIMIT 100000, 20 slow?",
+        "How would you paginate by created_at with duplicate timestamps?"
+      ]
+    },
+    {
+      "id": "be-db-010",
+      "content": "What is the difference between optimistic and pessimistic locking?",
+      "skill_tags": ["Database", "Locking", "Concurrency"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Pessimistic locking assumes conflicts are likely and locks records before update",
+        "Optimistic locking assumes conflicts are rare and checks a version or timestamp during update",
+        "Pessimistic locks can block and create deadlock risk",
+        "Optimistic locking needs retry or conflict handling logic",
+        "Choice depends on contention level and business semantics"
+      ],
+      "follow_up_directions": [
+        "How would you implement optimistic locking in SQL?",
+        "When would pessimistic locking be safer?"
+      ]
+    },
+    {
+      "id": "be-db-011",
+      "content": "What are database deadlocks, and how should applications handle them?",
+      "skill_tags": ["Database", "Deadlock", "Transaction"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Database deadlocks happen when transactions wait on each other's locks",
+        "Databases often detect deadlocks and abort one transaction",
+        "Applications should use short transactions and consistent lock ordering",
+        "Retrying aborted transactions can be correct if operations are idempotent",
+        "Deadlock logs help identify conflicting SQL statements and lock order"
+      ],
+      "follow_up_directions": [
+        "Why can two simple updates deadlock?",
+        "How many times should an application retry?"
+      ]
+    },
+    {
+      "id": "be-db-012",
+      "content": "How would you design a database schema for high write throughput?",
+      "skill_tags": ["Database", "Schema Design", "High Throughput"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Keep write paths narrow and avoid unnecessary indexes",
+        "Use append-friendly primary keys when appropriate",
+        "Batch writes and reduce transaction size when possible",
+        "Separate hot counters or frequently updated fields from wide rows",
+        "Consider partitioning, sharding, or asynchronous processing when a single table becomes a bottleneck"
+      ],
+      "follow_up_directions": [
+        "How can too many secondary indexes hurt writes?",
+        "What is a hot row problem?"
+      ]
+    },
+    {
+      "id": "be-db-013",
+      "content": "What is database normalization, and when would you denormalize?",
+      "skill_tags": ["Database", "Schema Design", "Normalization"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Normalization reduces redundancy and update anomalies",
+        "It separates entities into related tables with clear keys",
+        "Denormalization duplicates data to improve read performance or simplify queries",
+        "Denormalized data must be kept consistent by application logic or pipelines",
+        "Backend design balances correctness, query complexity, and performance"
+      ],
+      "follow_up_directions": [
+        "What consistency issues can denormalization introduce?",
+        "Where would denormalization help a reporting page?"
+      ]
+    },
+    {
+      "id": "be-db-014",
+      "content": "How would you choose between relational databases and NoSQL databases?",
+      "skill_tags": ["Database", "NoSQL", "Architecture"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Relational databases fit structured data, transactions, joins, and strong consistency needs",
+        "NoSQL systems can fit flexible schemas, horizontal scale, or specialized access patterns",
+        "Document, key-value, column-family, and graph databases solve different problems",
+        "Operational maturity and query requirements matter as much as data volume",
+        "Many systems use relational databases as source of truth and NoSQL for specialized workloads"
+      ],
+      "follow_up_directions": [
+        "Would you store orders in MongoDB or MySQL?",
+        "How would you handle transactions in NoSQL?"
+      ]
+    },
+    {
+      "id": "be-db-015",
+      "content": "What is read-write splitting, and what issues can it introduce?",
+      "skill_tags": ["Database", "Replication", "Read Write Splitting"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Writes go to the primary database and reads can go to replicas",
+        "It improves read scalability when replicas are available",
+        "Replication lag can cause stale reads",
+        "Some requests may need read-your-writes consistency and must hit the primary",
+        "Routing logic and failover behavior must be carefully tested"
+      ],
+      "follow_up_directions": [
+        "How would you handle a user reading data immediately after writing?",
+        "What happens during primary failover?"
+      ]
+    },
+    {
+      "id": "be-db-016",
+      "content": "What is sharding, and how would you choose a shard key?",
+      "skill_tags": ["Database", "Sharding", "Scalability"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Sharding splits data across multiple database instances",
+        "A good shard key distributes load and supports common query patterns",
+        "Poor shard keys can create hot shards or expensive cross-shard queries",
+        "Rebalancing and resharding are operationally complex",
+        "Global unique ids and distributed transactions need extra design"
+      ],
+      "follow_up_directions": [
+        "Why is user_id often a shard key?",
+        "How would you query across shards?"
+      ]
+    },
+    {
+      "id": "be-db-017",
+      "content": "How would you design id generation in a distributed backend system?",
+      "skill_tags": ["Database", "Distributed ID", "System Design"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Options include database auto-increment, UUID, Snowflake-like ids, and segment allocation",
+        "Auto-increment is simple but can bottleneck or reveal sequence information",
+        "UUIDs are decentralized but can be large and index-unfriendly",
+        "Snowflake-style ids encode time and worker information",
+        "The choice depends on ordering, uniqueness, storage, and operational constraints"
+      ],
+      "follow_up_directions": [
+        "Why can random UUIDs hurt B+ tree locality?",
+        "What clock issues affect Snowflake ids?"
+      ]
+    },
+    {
+      "id": "be-db-018",
+      "content": "What is the difference between binlog, redo log, and undo log in MySQL-like systems?",
+      "skill_tags": ["Database", "MySQL", "Logs", "Transaction"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Redo log supports crash recovery for committed changes",
+        "Undo log supports rollback and MVCC visibility of older versions",
+        "Binlog records logical changes and is used for replication and point-in-time recovery",
+        "Redo log is storage-engine level, while binlog is server-level in MySQL",
+        "Two-phase commit coordinates redo log and binlog consistency"
+      ],
+      "follow_up_directions": [
+        "Why is two-phase commit needed between redo log and binlog?",
+        "How does undo log relate to snapshot reads?"
+      ]
+    },
+    {
+      "id": "be-db-019",
+      "content": "How would you avoid SQL injection in backend APIs?",
+      "skill_tags": ["Database", "Security", "SQL Injection"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Use parameterized queries or ORM parameter binding",
+        "Never concatenate untrusted input into SQL strings",
+        "Validate and whitelist dynamic identifiers such as sort fields",
+        "Use least-privilege database accounts",
+        "Log suspicious patterns without leaking sensitive data"
+      ],
+      "follow_up_directions": [
+        "Can ORM usage still be vulnerable?",
+        "How would you safely support dynamic ORDER BY?"
+      ]
+    },
+    {
+      "id": "be-db-020",
+      "content": "How would you design database backups and recovery for an online product?",
+      "skill_tags": ["Database", "Backup", "Disaster Recovery"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use full backups plus incremental logs or binlogs for point-in-time recovery",
+        "Define RPO and RTO based on business requirements",
+        "Regularly test restore procedures rather than only creating backups",
+        "Store backups in isolated and durable locations",
+        "Monitor backup success, size, and restore time"
+      ],
+      "follow_up_directions": [
+        "What is the difference between RPO and RTO?",
+        "Why must restore drills be automated?"
+      ]
+    },
+    {
+      "id": "be-redis-001",
+      "content": "What are common Redis use cases in backend systems?",
+      "skill_tags": ["Redis", "Cache", "Backend"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Redis is commonly used as a distributed cache",
+        "It can support distributed locks, rate limiting, counters, leaderboards, and sessions",
+        "Redis data structures include String, Hash, List, Set, Sorted Set, Bitmap, HyperLogLog, and Stream",
+        "It is fast because data is mainly kept in memory",
+        "Using Redis requires careful expiration, consistency, and memory management"
+      ],
+      "follow_up_directions": [
+        "When should Redis not be used?",
+        "Which Redis data structure would you use for a leaderboard?"
+      ]
+    },
+    {
+      "id": "be-redis-002",
+      "content": "How would you design a cache-aside strategy with Redis?",
+      "skill_tags": ["Redis", "Cache Aside", "Database"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Read path checks Redis first and falls back to the database on miss",
+        "After database read, the service writes the value back to Redis with TTL",
+        "Write path typically updates the database and deletes or invalidates the cache",
+        "Deleting cache after database update avoids some stale overwrite scenarios",
+        "Failures need retry, monitoring, and possibly delayed double deletion"
+      ],
+      "follow_up_directions": [
+        "Why delete cache instead of updating it directly?",
+        "What is delayed double deletion?"
+      ]
+    },
+    {
+      "id": "be-redis-003",
+      "content": "What are cache penetration, cache breakdown, and cache avalanche?",
+      "skill_tags": ["Redis", "Cache", "High Concurrency"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Cache penetration means requests for nonexistent data bypass cache and hit the database repeatedly",
+        "Cache breakdown means one hot key expires and many requests hit the database at once",
+        "Cache avalanche means many keys expire together or Redis becomes unavailable",
+        "Mitigations include null-value caching, Bloom filters, mutex rebuild, random TTL, and fallback limits",
+        "Protection should be tested under traffic spikes"
+      ],
+      "follow_up_directions": [
+        "How does a Bloom filter reduce penetration?",
+        "How would you rebuild a hot key safely?"
+      ]
+    },
+    {
+      "id": "be-redis-004",
+      "content": "How would you implement a distributed lock with Redis?",
+      "skill_tags": ["Redis", "Distributed Lock", "Concurrency"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use SET key value NX PX to acquire a lock with expiration",
+        "Use a unique token as the lock value to avoid releasing another client's lock",
+        "Release the lock with an atomic Lua script that checks the token before deleting",
+        "Set expiration to prevent permanent deadlock if the owner crashes",
+        "Long tasks may require renewal or a watchdog mechanism"
+      ],
+      "follow_up_directions": [
+        "Why is a unique lock token necessary?",
+        "What problems does Redlock try to solve?"
+      ]
+    },
+    {
+      "id": "be-redis-005",
+      "content": "Compare Redis RDB and AOF persistence mechanisms.",
+      "skill_tags": ["Redis", "Persistence", "RDB", "AOF"],
+      "difficulty": "medium",
+      "reference_points": [
+        "RDB creates point-in-time snapshots and is compact for backup",
+        "AOF logs write commands and can reduce data loss depending on fsync policy",
+        "RDB recovery can be faster but may lose recent writes",
+        "AOF can be larger and needs rewrite compaction",
+        "Production configuration balances durability, performance, and recovery needs"
+      ],
+      "follow_up_directions": [
+        "What is AOF rewrite?",
+        "Which persistence mode would you choose for cache-only Redis?"
+      ]
+    },
+    {
+      "id": "be-redis-006",
+      "content": "Why is Redis fast even though it is mostly single-threaded for command execution?",
+      "skill_tags": ["Redis", "Performance", "Event Loop"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Redis stores data in memory and uses efficient data structures",
+        "Single-threaded command execution avoids many lock contention costs",
+        "I/O multiplexing handles many connections efficiently",
+        "Commands are usually simple and fast",
+        "Slow commands, large keys, persistence, and network overhead can still cause latency"
+      ],
+      "follow_up_directions": [
+        "Which Redis operations can block the server?",
+        "How would you detect slow commands?"
+      ]
+    },
+    {
+      "id": "be-redis-007",
+      "content": "What Redis data structure would you choose for common backend scenarios?",
+      "skill_tags": ["Redis", "Data Structures", "Backend"],
+      "difficulty": "easy",
+      "reference_points": [
+        "String fits simple cache values, counters, and tokens",
+        "Hash fits object-like fields such as user profiles",
+        "Set fits uniqueness and intersection operations",
+        "Sorted Set fits leaderboards and delayed task scores",
+        "Stream fits lightweight message stream use cases with consumer groups"
+      ],
+      "follow_up_directions": [
+        "How would you implement a leaderboard?",
+        "When would Hash be better than String?"
+      ]
+    },
+    {
+      "id": "be-redis-008",
+      "content": "How would you design rate limiting with Redis?",
+      "skill_tags": ["Redis", "Rate Limiting", "Lua"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Fixed window counters are simple but can allow boundary bursts",
+        "Sliding window strategies smooth traffic at higher cost",
+        "Token bucket and leaky bucket control burst and steady rates differently",
+        "Lua scripts make multi-step checks and updates atomic",
+        "Limits can be per user, IP, API key, route, or session"
+      ],
+      "follow_up_directions": [
+        "What is the weakness of fixed window limiting?",
+        "Why use Lua for rate limiting?"
+      ]
+    },
+    {
+      "id": "be-redis-009",
+      "content": "How would you handle Redis memory pressure and eviction?",
+      "skill_tags": ["Redis", "Memory", "Eviction"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Set maxmemory according to the deployment budget",
+        "Choose an eviction policy such as allkeys-lru, volatile-lru, allkeys-lfu, or noeviction",
+        "Use TTLs for cache keys and avoid unbounded key growth",
+        "Monitor memory fragmentation, big keys, hot keys, and eviction count",
+        "Compress or split large values when appropriate"
+      ],
+      "follow_up_directions": [
+        "What happens under noeviction policy?",
+        "How would you find big keys?"
+      ]
+    },
+    {
+      "id": "be-redis-010",
+      "content": "What are hot keys and big keys in Redis, and why are they dangerous?",
+      "skill_tags": ["Redis", "Hot Key", "Big Key", "Performance"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A hot key receives disproportionately high traffic and can overload a node",
+        "A big key stores too much data and can block operations or slow network transfer",
+        "Hot keys can be mitigated with local cache, key splitting, or request coalescing",
+        "Big keys should be split, paginated, or modeled with smaller structures",
+        "Detection requires metrics, command stats, latency monitoring, and key scans in safe ways"
+      ],
+      "follow_up_directions": [
+        "How would you split a hot leaderboard key?",
+        "Why is KEYS dangerous in production?"
+      ]
+    },
+    {
+      "id": "be-redis-011",
+      "content": "How does Redis Cluster distribute data?",
+      "skill_tags": ["Redis", "Redis Cluster", "Scalability"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Redis Cluster divides keyspace into hash slots",
+        "Each master node owns a subset of slots",
+        "Keys are mapped to slots using CRC16 and optional hash tags",
+        "Clients must handle MOVED or ASK redirections during topology changes",
+        "Cluster improves horizontal scaling but adds multi-key operation constraints"
+      ],
+      "follow_up_directions": [
+        "What are hash tags in Redis Cluster?",
+        "Why are cross-slot multi-key operations limited?"
+      ]
+    },
+    {
+      "id": "be-redis-012",
+      "content": "How would you use Redis Streams, and how do they compare with professional message queues?",
+      "skill_tags": ["Redis", "Stream", "Message Queue"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Redis Streams provide append-only messages with ids and consumer groups",
+        "They support pending entries and acknowledgement",
+        "They can be useful for lightweight internal streams",
+        "Professional MQ systems usually provide stronger tooling, durability, throughput, and ecosystem support",
+        "Redis Streams should be chosen only when their operational tradeoffs are acceptable"
+      ],
+      "follow_up_directions": [
+        "What is a pending entry list?",
+        "Why might Kafka or RocketMQ be better for critical event pipelines?"
+      ]
+    },
+    {
+      "id": "be-redis-013",
+      "content": "How would you implement a delayed task queue with Redis?",
+      "skill_tags": ["Redis", "Delayed Queue", "Sorted Set"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use a Sorted Set where the score is the execution timestamp",
+        "Workers poll or block around due timestamps and claim tasks atomically",
+        "Lua scripts can atomically fetch and remove due tasks",
+        "Task execution must be idempotent because retries can occur",
+        "For high reliability or large scale, a dedicated MQ delay feature may be better"
+      ],
+      "follow_up_directions": [
+        "How would you prevent two workers from executing the same task?",
+        "When would you choose RocketMQ delayed messages instead?"
+      ]
+    },
+    {
+      "id": "be-redis-014",
+      "content": "What consistency issues can appear when using Redis as a cache in front of MySQL?",
+      "skill_tags": ["Redis", "Cache Consistency", "MySQL"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Database updates and cache updates are not naturally atomic",
+        "Updating cache before database commit can expose uncommitted or wrong data",
+        "Deleting cache after database update is common but still has race windows",
+        "Delayed deletion, message-based invalidation, and short TTL can reduce inconsistency",
+        "Strong consistency may require reading from the database or using transactional patterns"
+      ],
+      "follow_up_directions": [
+        "What race can happen between cache miss and database update?",
+        "How would you choose TTL for critical data?"
+      ]
+    },
+    {
+      "id": "be-redis-015",
+      "content": "How would you monitor Redis in production?",
+      "skill_tags": ["Redis", "Observability", "Production"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Track latency, QPS, memory, connected clients, evictions, and blocked clients",
+        "Monitor hit rate, key count, expired keys, and slow log",
+        "Watch replication lag and cluster slot health",
+        "Alert on memory nearing maxmemory and increasing command latency",
+        "Correlate Redis metrics with application latency and database load"
+      ],
+      "follow_up_directions": [
+        "What does a falling cache hit rate indicate?",
+        "How would you investigate sudden Redis latency spikes?"
+      ]
+    },
+    {
+      "id": "be-mq-001",
+      "content": "Why do backend systems use message queues?",
+      "skill_tags": ["Message Queue", "Distributed Systems", "Architecture"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Message queues decouple producers and consumers",
+        "They support asynchronous processing to reduce request latency",
+        "They absorb traffic spikes and smooth downstream load",
+        "They improve extensibility when multiple downstream systems subscribe to events",
+        "They introduce complexity such as eventual consistency, duplicates, and delayed failure handling"
+      ],
+      "follow_up_directions": [
+        "When would you avoid using MQ?",
+        "Give an example of asynchronous processing in an order system"
+      ]
+    },
+    {
+      "id": "be-mq-002",
+      "content": "How would you prevent message loss in a message queue pipeline?",
+      "skill_tags": ["Message Queue", "Reliability", "Producer", "Consumer"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Producer should use reliable send acknowledgements and retry carefully",
+        "Broker should persist messages and replicate data when needed",
+        "Consumer should acknowledge only after successful processing",
+        "Dead-letter queues help isolate repeatedly failing messages",
+        "Monitoring should cover send failures, broker health, consumer lag, and retry counts"
+      ],
+      "follow_up_directions": [
+        "Where can a message be lost?",
+        "How would you handle producer retry duplicates?"
+      ]
+    },
+    {
+      "id": "be-mq-003",
+      "content": "Why can messages be consumed more than once, and how would you design idempotent consumers?",
+      "skill_tags": ["Message Queue", "Idempotency", "Consumer"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Retries, timeouts, consumer crashes, and acknowledgement failures can cause duplicate delivery",
+        "Consumers should use business ids or message ids to deduplicate",
+        "Database unique constraints can enforce idempotency",
+        "Side effects should be designed so repeated execution is safe",
+        "Exactly-once semantics often require careful end-to-end design rather than broker configuration alone"
+      ],
+      "follow_up_directions": [
+        "What idempotency key would you use for a payment callback?",
+        "Can exactly-once delivery be guaranteed easily?"
+      ]
+    },
+    {
+      "id": "be-mq-004",
+      "content": "How would you handle message backlog or consumer lag?",
+      "skill_tags": ["Message Queue", "Consumer Lag", "Scalability"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Identify whether backlog comes from traffic spike, slow consumer logic, downstream bottleneck, or broker issue",
+        "Scale consumers up to the number of useful partitions or queues",
+        "Optimize slow processing and batch where safe",
+        "Temporarily route non-critical work to lower priority or delayed processing",
+        "Track lag, processing latency, retry rate, and dead-letter growth"
+      ],
+      "follow_up_directions": [
+        "Why might adding consumers not improve throughput?",
+        "How would you recover from millions of delayed messages?"
+      ]
+    },
+    {
+      "id": "be-mq-005",
+      "content": "How would you guarantee message ordering when using MQ?",
+      "skill_tags": ["Message Queue", "Ordering", "Distributed Systems"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Global ordering reduces concurrency and is rarely necessary",
+        "Per-key ordering is usually more practical, such as ordering by order_id or user_id",
+        "Send messages for the same key to the same partition or queue",
+        "Consume each ordered partition or queue sequentially",
+        "Ordering must be balanced against throughput and failure recovery"
+      ],
+      "follow_up_directions": [
+        "Why is global ordering expensive?",
+        "How would you guarantee order events are processed in order?"
+      ]
+    },
+    {
+      "id": "be-mq-006",
+      "content": "Compare Kafka, RocketMQ, and RabbitMQ for backend use cases.",
+      "skill_tags": ["Message Queue", "Kafka", "RocketMQ", "RabbitMQ"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Kafka is strong for high-throughput logs, event streams, and analytics pipelines",
+        "RocketMQ is often used for online business messaging, delayed messages, and transactional messages",
+        "RabbitMQ is feature-rich for routing patterns and traditional messaging",
+        "Selection depends on throughput, latency, ordering, delayed messages, transactions, ecosystem, and team experience",
+        "Operational maturity and failure handling matter more than benchmark numbers alone"
+      ],
+      "follow_up_directions": [
+        "When would Kafka be a poor fit?",
+        "Why might RocketMQ be chosen for e-commerce order events?"
+      ]
+    },
+    {
+      "id": "be-mq-007",
+      "content": "How do Kafka partitions and consumer groups work?",
+      "skill_tags": ["Message Queue", "Kafka", "Consumer Group", "Partition"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A topic is divided into partitions for parallelism and ordering within each partition",
+        "Messages with the same key can be routed to the same partition",
+        "Consumers in the same group share partitions for load balancing",
+        "Different consumer groups each receive their own copy of the topic stream",
+        "Consumer lag measures how far consumers are behind partition offsets"
+      ],
+      "follow_up_directions": [
+        "Why does partition count limit consumer parallelism within one group?",
+        "What happens during consumer rebalance?"
+      ]
+    },
+    {
+      "id": "be-mq-008",
+      "content": "How would you design transactional messaging between a database update and an event publish?",
+      "skill_tags": ["Message Queue", "Transaction", "Outbox Pattern"],
+      "difficulty": "hard",
+      "reference_points": [
+        "The core problem is atomicity between local database changes and message publishing",
+        "The outbox pattern writes business data and event records in the same database transaction",
+        "A relay later publishes outbox events to the message queue",
+        "Consumers still need idempotency because messages may be published more than once",
+        "Some MQ systems provide transactional messages, but business reconciliation is still important"
+      ],
+      "follow_up_directions": [
+        "Why is dual-write unsafe?",
+        "How would you ensure outbox events are eventually published?"
+      ]
+    },
+    {
+      "id": "be-mq-009",
+      "content": "What is a dead-letter queue, and when should it be used?",
+      "skill_tags": ["Message Queue", "DLQ", "Reliability"],
+      "difficulty": "easy",
+      "reference_points": [
+        "A dead-letter queue stores messages that cannot be processed successfully after retries",
+        "It prevents poison messages from blocking normal consumption",
+        "DLQ messages should include error metadata and original payload references",
+        "Teams should monitor and replay DLQ messages after fixing the root cause",
+        "A DLQ is not a substitute for idempotency or validation"
+      ],
+      "follow_up_directions": [
+        "How would you replay DLQ messages safely?",
+        "What is a poison message?"
+      ]
+    },
+    {
+      "id": "be-mq-010",
+      "content": "How would you design delayed or scheduled messages?",
+      "skill_tags": ["Message Queue", "Delayed Message", "Scheduling"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use native delay features when the chosen MQ supports the required precision and scale",
+        "Use Redis Sorted Set or a database scheduler for simpler systems",
+        "Delayed tasks must be idempotent because retries and duplicate delivery can occur",
+        "Very large delayed queues need monitoring and backpressure",
+        "Use cases include order timeout, retry delay, reminder notification, and compensation tasks"
+      ],
+      "follow_up_directions": [
+        "How would you implement order timeout cancellation?",
+        "When would a simple database scheduler be enough?"
+      ]
+    }
+  ]
+}

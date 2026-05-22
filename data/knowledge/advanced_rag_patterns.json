@@ -1,0 +1,431 @@
+{
+  "category": "Advanced RAG Patterns",
+  "description": "Advanced retrieval augmented generation knowledge items for chunking, query rewriting, reranking, hydration, evaluation, and production RAG reliability.",
+  "questions": [
+    {
+      "id": "rag-adv-001",
+      "content": "What is Parent-Child Chunking in RAG, and why is it useful?",
+      "skill_tags": ["RAG", "Chunking", "Parent-Child Retrieval"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Child chunks are small retrieval units optimized for recall",
+        "Parent documents are larger generation units that preserve full context",
+        "Retrieval matches fine-grained evidence while generation receives coherent context",
+        "It is useful for structured documents with sections, answers, or metadata",
+        "A parent_id links each child chunk back to the source document"
+      ],
+      "follow_up_directions": [
+        "How would you choose child chunk size?",
+        "What metadata must each child chunk store?"
+      ]
+    },
+    {
+      "id": "rag-adv-002",
+      "content": "How does structure-aware chunking differ from fixed-size chunking?",
+      "skill_tags": ["RAG", "Chunking", "Document Processing"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Fixed-size chunking splits by character or token count",
+        "Structure-aware chunking respects semantic fields such as title, section, question, answer, and table",
+        "It reduces the chance of cutting a useful unit in half",
+        "It keeps metadata aligned with natural document boundaries",
+        "It is especially suitable for JSON, Markdown, API docs, and question banks"
+      ],
+      "follow_up_directions": [
+        "When is fixed-size chunking still acceptable?",
+        "How would you chunk a PDF with poor structure?"
+      ]
+    },
+    {
+      "id": "rag-adv-003",
+      "content": "What is contextualized chunking in a RAG system?",
+      "skill_tags": ["RAG", "Contextual Retrieval", "Chunking"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Each chunk receives a compact header with source context",
+        "Context can include document title, category, section path, skill tags, or parent question",
+        "This makes isolated chunks more understandable to the embedding model",
+        "It improves both vector retrieval and keyword retrieval",
+        "The header should be concise to avoid diluting the actual chunk content"
+      ],
+      "follow_up_directions": [
+        "What context is useful versus noisy?",
+        "How would contextualized chunks affect token cost?"
+      ]
+    },
+    {
+      "id": "rag-adv-004",
+      "content": "How would you generate query variants for a RAG index?",
+      "skill_tags": ["RAG", "Query Generation", "Offline Indexing"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Create likely user questions or interviewer questions for each document",
+        "Use rule-based templates or an offline LLM generation job",
+        "Index generated queries as child chunks or auxiliary searchable text",
+        "Link generated queries back to the original parent document",
+        "Evaluate whether generated queries improve recall without adding noise"
+      ],
+      "follow_up_directions": [
+        "Would you generate queries online or offline?",
+        "How would you avoid low-quality synthetic queries?"
+      ]
+    },
+    {
+      "id": "rag-adv-005",
+      "content": "What is query rewriting in RAG, and when is it useful?",
+      "skill_tags": ["RAG", "Query Rewriting", "Retrieval"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Query rewriting transforms the user's original query into retrieval-friendly forms",
+        "It can expand abbreviations, add domain terms, or split a broad query into subqueries",
+        "It is useful when user wording differs from document wording",
+        "Rewriting can be rule-based or LLM-based",
+        "Multi-query retrieval can improve recall but needs fusion and deduplication"
+      ],
+      "follow_up_directions": [
+        "How would you control query drift?",
+        "How many rewritten queries are enough?"
+      ]
+    },
+    {
+      "id": "rag-adv-006",
+      "content": "How does hybrid retrieval combine vector search and BM25?",
+      "skill_tags": ["RAG", "Hybrid Retrieval", "BM25", "Vector Search"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Vector search captures semantic similarity",
+        "BM25 captures exact keyword and technical term matches",
+        "Hybrid retrieval is useful for framework names, APIs, and domain abbreviations",
+        "Results can be fused with Reciprocal Rank Fusion or weighted score normalization",
+        "Hybrid search often improves recall compared with either method alone"
+      ],
+      "follow_up_directions": [
+        "Why is score normalization difficult across retrievers?",
+        "What kinds of queries favor BM25?"
+      ]
+    },
+    {
+      "id": "rag-adv-007",
+      "content": "What is Reciprocal Rank Fusion, and why is it used in RAG retrieval?",
+      "skill_tags": ["RAG", "RRF", "Ranking"],
+      "difficulty": "medium",
+      "reference_points": [
+        "RRF fuses multiple ranked lists using reciprocal rank positions",
+        "It does not require raw scores from different retrievers to be comparable",
+        "Items that appear high in multiple lists receive stronger final scores",
+        "It works well for fusing vector, BM25, and multi-query results",
+        "The k parameter controls how much top ranks dominate"
+      ],
+      "follow_up_directions": [
+        "How would you tune the RRF k value?",
+        "When might weighted fusion be better?"
+      ]
+    },
+    {
+      "id": "rag-adv-008",
+      "content": "What is reranking in RAG, and what are common reranking approaches?",
+      "skill_tags": ["RAG", "Reranking", "Cross Encoder"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Reranking reorders initially retrieved candidates using a more precise scoring method",
+        "Rule-based reranking can use metadata, skill overlap, freshness, or business context",
+        "Cross-encoder rerankers score query-document pairs with stronger semantic matching",
+        "LLM reranking can reason over candidates but is slower and more expensive",
+        "Reranking should run on a moderate candidate set rather than the full corpus"
+      ],
+      "follow_up_directions": [
+        "When would you choose rule-based reranking?",
+        "How would you measure reranker improvement?"
+      ]
+    },
+    {
+      "id": "rag-adv-009",
+      "content": "How would you design metadata-aware reranking for an interview question RAG system?",
+      "skill_tags": ["RAG", "Reranking", "Metadata", "Interview Planning"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Boost questions that overlap with required JD skills",
+        "Boost questions related to resume projects or missing skills",
+        "Prefer medium and hard questions in professional rounds",
+        "Favor system design and AI trend categories in second-round interviews",
+        "Penalize overrepresented categories to preserve diversity"
+      ],
+      "follow_up_directions": [
+        "How would you avoid overfitting reranking rules?",
+        "What metadata should be logged for debugging?"
+      ]
+    },
+    {
+      "id": "rag-adv-010",
+      "content": "What is parent hydration after retrieval?",
+      "skill_tags": ["RAG", "Parent Hydration", "Context Assembly"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Hydration maps retrieved child chunks back to their parent documents",
+        "It aggregates scores and evidence from multiple child chunks",
+        "It provides the generator with complete and coherent context",
+        "It preserves chunk ids for source-level traceability",
+        "It prevents the generator from seeing only isolated fragments"
+      ],
+      "follow_up_directions": [
+        "How would you aggregate scores across child chunks?",
+        "What happens if many chunks from one parent dominate retrieval?"
+      ]
+    },
+    {
+      "id": "rag-adv-011",
+      "content": "How would you evaluate retrieval quality in a RAG system?",
+      "skill_tags": ["RAG", "Evaluation", "Retrieval Metrics"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Create golden cases with queries and expected document ids",
+        "Use Hit@K to check whether at least one relevant document is retrieved",
+        "Use Recall@K to measure coverage of expected references",
+        "Use MRR to reward higher rank for the first relevant result",
+        "Track metrics for vector-only, hybrid, reranked, and hydrated variants"
+      ],
+      "follow_up_directions": [
+        "How would you build golden cases efficiently?",
+        "What does high Hit@5 but low Recall@5 indicate?"
+      ]
+    },
+    {
+      "id": "rag-adv-012",
+      "content": "What is context precision and context recall in RAG evaluation?",
+      "skill_tags": ["RAG", "RAGAS", "Evaluation"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Context precision measures how much retrieved context is actually relevant",
+        "Context recall measures whether necessary evidence was retrieved",
+        "High recall with low precision can overload the generator with noise",
+        "High precision with low recall can miss key evidence",
+        "These metrics complement answer-level faithfulness and relevance"
+      ],
+      "follow_up_directions": [
+        "How would you estimate context relevance without labels?",
+        "How do retrieval metrics differ from answer metrics?"
+      ]
+    },
+    {
+      "id": "rag-adv-013",
+      "content": "How would you choose top_k in a RAG retrieval pipeline?",
+      "skill_tags": ["RAG", "Retrieval Tuning", "Context Window"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Small top_k may miss relevant evidence",
+        "Large top_k may add noise and increase prompt cost",
+        "Use a larger candidate set before reranking and a smaller set after reranking",
+        "Tune top_k with retrieval metrics and downstream generation quality",
+        "Use diversity control when top results are too similar"
+      ],
+      "follow_up_directions": [
+        "Why might top_k differ between retrieval and generation?",
+        "How would you tune top_k for a small corpus?"
+      ]
+    },
+    {
+      "id": "rag-adv-014",
+      "content": "What are common failure modes in RAG systems?",
+      "skill_tags": ["RAG", "Failure Modes", "Reliability"],
+      "difficulty": "medium",
+      "reference_points": [
+        "The retriever returns irrelevant documents due to poor query-document alignment",
+        "Chunking loses important context or splits related information",
+        "The generator ignores retrieved evidence",
+        "The system retrieves stale or duplicate information",
+        "Evaluation focuses only on final answers and misses retrieval failures"
+      ],
+      "follow_up_directions": [
+        "How would you debug a bad answer?",
+        "How would you distinguish retrieval failure from generation failure?"
+      ]
+    },
+    {
+      "id": "rag-adv-015",
+      "content": "How would you design source tracking in a parent-child RAG system?",
+      "skill_tags": ["RAG", "Source Tracking", "Parent-Child Retrieval"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Track parent document ids for user-facing citations",
+        "Track child chunk ids for retrieval debugging",
+        "Store chunk type and matched chunk text for explainability",
+        "Validate that generated source ids come from the retrieved set",
+        "Use source tracking in offline evaluation and manual review"
+      ],
+      "follow_up_directions": [
+        "Should users see chunk ids or parent ids?",
+        "How would you handle generated content with no source?"
+      ]
+    },
+    {
+      "id": "rag-adv-016",
+      "content": "How can diversity control improve RAG retrieval results?",
+      "skill_tags": ["RAG", "Diversity", "Retrieval"],
+      "difficulty": "easy",
+      "reference_points": [
+        "It prevents one category or document from dominating the final context",
+        "It improves coverage across multiple skills or topics",
+        "It is useful after multi-query retrieval where duplicate themes can appear",
+        "It can cap results per category, difficulty, source, or parent id",
+        "It should not remove highly relevant evidence too aggressively"
+      ],
+      "follow_up_directions": [
+        "How would you choose diversity caps?",
+        "When can diversity hurt answer quality?"
+      ]
+    },
+    {
+      "id": "rag-adv-017",
+      "content": "What is HyDE in RAG, and when would you use it?",
+      "skill_tags": ["RAG", "HyDE", "Query Expansion"],
+      "difficulty": "hard",
+      "reference_points": [
+        "HyDE generates a hypothetical answer or document from the query",
+        "The hypothetical text is embedded and used for retrieval",
+        "It can help when the original query is short or poorly aligned with documents",
+        "It adds latency and model cost because it needs a generation step",
+        "It should be evaluated carefully because generated text can introduce drift"
+      ],
+      "follow_up_directions": [
+        "Why might HyDE hurt precision?",
+        "Would you use HyDE in an interview question planner?"
+      ]
+    },
+    {
+      "id": "rag-adv-018",
+      "content": "What is corrective RAG, and what problem does it try to solve?",
+      "skill_tags": ["RAG", "Corrective RAG", "Reliability"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Corrective RAG detects when retrieved context is insufficient or irrelevant",
+        "It can trigger query rewriting, web search, broader retrieval, or fallback behavior",
+        "It is useful when retrieval quality varies across topics",
+        "It requires a confidence or relevance judgment step",
+        "It is more complex than basic RAG and should be justified by failure cases"
+      ],
+      "follow_up_directions": [
+        "How would you detect low-quality retrieval?",
+        "What fallback would you choose for a small local question bank?"
+      ]
+    },
+    {
+      "id": "rag-adv-019",
+      "content": "How would you reduce hallucination in a RAG-based answer generation system?",
+      "skill_tags": ["RAG", "Hallucination", "Faithfulness"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Retrieve relevant and sufficient context before generation",
+        "Instruct the model to use only provided sources when factual grounding is required",
+        "Track citations or source ids for generated claims",
+        "Use answer validation or faithfulness checks for high-risk outputs",
+        "Improve chunk quality, query rewriting, and reranking when context is weak"
+      ],
+      "follow_up_directions": [
+        "Can RAG eliminate hallucination completely?",
+        "How would you test faithfulness?"
+      ]
+    },
+    {
+      "id": "rag-adv-020",
+      "content": "How would you migrate from a small RAG corpus to a larger production knowledge base?",
+      "skill_tags": ["RAG", "Scalability", "Indexing"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Introduce stable document ids and chunk ids before scaling",
+        "Separate offline indexing from online retrieval services",
+        "Track index versions and embedding model versions",
+        "Add incremental indexing and deletion support",
+        "Use retrieval evaluation to catch regressions after corpus updates"
+      ],
+      "follow_up_directions": [
+        "How would you handle changed documents?",
+        "How would you compare two index versions?"
+      ]
+    },
+    {
+      "id": "rag-adv-021",
+      "content": "How would you handle metadata filters in RAG retrieval?",
+      "skill_tags": ["RAG", "Metadata Filtering", "Vector Database"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Metadata filters constrain retrieval to categories, difficulties, users, or document types",
+        "Filters improve precision when the user intent is clear",
+        "Overly strict filters can reduce recall",
+        "BM25 and vector branches should apply compatible filters in hybrid retrieval",
+        "Filter usage should be logged for debugging poor retrieval"
+      ],
+      "follow_up_directions": [
+        "Would you filter before or after vector search?",
+        "How would filters interact with reranking?"
+      ]
+    },
+    {
+      "id": "rag-adv-022",
+      "content": "What is the role of embeddings in RAG, and how would you choose an embedding model?",
+      "skill_tags": ["RAG", "Embedding", "Model Selection"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Embeddings map text into vectors for semantic similarity search",
+        "The model should fit language, domain, latency, cost, and dimension requirements",
+        "Embedding changes require reindexing or index versioning",
+        "Evaluate embedding models with retrieval golden cases",
+        "Domain-specific terms may still benefit from BM25 even with good embeddings"
+      ],
+      "follow_up_directions": [
+        "Why must you reindex after changing embedding models?",
+        "How would you compare two embedding models?"
+      ]
+    },
+    {
+      "id": "rag-adv-023",
+      "content": "How would you design incremental indexing for a RAG system?",
+      "skill_tags": ["RAG", "Indexing", "Data Pipeline"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Compute stable ids for documents and chunks",
+        "Detect added, changed, and deleted source records",
+        "Only re-embed changed chunks to save cost",
+        "Upsert changed chunks and remove obsolete chunks",
+        "Record index version and source file metadata"
+      ],
+      "follow_up_directions": [
+        "How would you detect content changes?",
+        "How would you rollback a bad index update?"
+      ]
+    },
+    {
+      "id": "rag-adv-024",
+      "content": "How would you debug a RAG system that returns irrelevant interview questions?",
+      "skill_tags": ["RAG", "Debugging", "Interview Planning"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Log rewritten queries, top-k candidates, scores, and source metadata",
+        "Check whether chunking lost useful context",
+        "Compare vector-only, BM25, hybrid, and reranked results",
+        "Inspect whether generated query chunks are too broad",
+        "Add failed examples to the retrieval golden dataset"
+      ],
+      "follow_up_directions": [
+        "What would you inspect first?",
+        "How would you know if the issue is query rewriting or chunking?"
+      ]
+    },
+    {
+      "id": "rag-adv-025",
+      "content": "How would you decide whether an advanced RAG technique is worth adding?",
+      "skill_tags": ["RAG", "Engineering Judgment", "Evaluation"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Start from observed failure cases rather than adding techniques by name",
+        "Estimate complexity, latency, cost, and maintainability",
+        "Measure retrieval and downstream generation quality before and after the change",
+        "Prefer simple metadata or chunking improvements when they solve the problem",
+        "Document why a technique was chosen and what alternatives were rejected"
+      ],
+      "follow_up_directions": [
+        "Why not always use GraphRAG or Self-RAG?",
+        "How would you present this tradeoff in a project interview?"
+      ]
+    }
+  ]
+}

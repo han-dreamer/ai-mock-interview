@@ -1,0 +1,340 @@
+{
+  "category": "System Design",
+  "questions": [
+    {
+      "id": "sd-001",
+      "content": "请设计一个短链接（URL Shortener）服务。需要考虑哪些核心问题？",
+      "skill_tags": ["系统设计", "分布式", "数据库"],
+      "difficulty": "medium",
+      "reference_points": [
+        "短码生成策略：哈希截断、自增 ID + Base62 编码、预生成池",
+        "存储方案：KV 存储或关系型数据库",
+        "重定向使用 301 还是 302 的区别",
+        "高并发读优化：缓存层（Redis）",
+        "过期策略和统计分析"
+      ],
+      "follow_up_directions": [
+        "如何保证短码的唯一性？",
+        "如果要支持自定义短链，设计上有什么变化？"
+      ]
+    },
+    {
+      "id": "sd-002",
+      "content": "请设计一个消息队列系统（类似 Kafka / RabbitMQ）。核心组件有哪些？",
+      "skill_tags": ["系统设计", "消息队列", "分布式"],
+      "difficulty": "hard",
+      "reference_points": [
+        "核心组件：Producer、Broker、Consumer、Topic/Queue",
+        "消息持久化：磁盘顺序写",
+        "消费模式：Push vs Pull",
+        "消息可靠性：ACK 机制、幂等消费、至少一次/恰好一次语义",
+        "分区和消费者组实现并行消费"
+      ],
+      "follow_up_directions": [
+        "Kafka 的 ISR 机制是什么？",
+        "如何处理消息积压问题？"
+      ]
+    },
+    {
+      "id": "sd-003",
+      "content": "请解释 RESTful API 的设计原则。如何设计一个好的 API？",
+      "skill_tags": ["系统设计", "API设计", "后端"],
+      "difficulty": "easy",
+      "reference_points": [
+        "资源导向：URI 表示资源，HTTP 方法表示操作",
+        "合理的状态码使用：200/201/400/401/403/404/500",
+        "版本控制策略：URL 路径 vs Header",
+        "分页、过滤、排序的标准方式",
+        "HATEOAS 的概念"
+      ],
+      "follow_up_directions": [
+        "REST 和 GraphQL 的对比？",
+        "如何处理 API 的向后兼容？"
+      ]
+    },
+    {
+      "id": "sd-004",
+      "content": "请解释微服务架构的优缺点。什么情况下应该从单体迁移到微服务？",
+      "skill_tags": ["系统设计", "微服务", "架构"],
+      "difficulty": "medium",
+      "reference_points": [
+        "优点：独立部署、技术栈灵活、团队自治、故障隔离",
+        "缺点：分布式复杂性、网络延迟、数据一致性、运维成本",
+        "迁移时机：团队规模增大、部署频率瓶颈、模块间耦合过高",
+        "不要过早微服务化"
+      ],
+      "follow_up_directions": [
+        "微服务之间的通信方式？gRPC vs REST vs 消息队列？",
+        "分布式事务怎么处理？Saga 模式了解吗？"
+      ]
+    },
+    {
+      "id": "sd-005",
+      "content": "请解释数据库索引的原理。B+ 树索引和哈希索引有什么区别？",
+      "skill_tags": ["系统设计", "数据库", "索引"],
+      "difficulty": "medium",
+      "reference_points": [
+        "B+ 树：有序、支持范围查询、叶子节点链表连接",
+        "哈希索引：等值查询 O(1)，不支持范围查询",
+        "聚簇索引 vs 非聚簇索引",
+        "覆盖索引、联合索引、最左前缀原则"
+      ],
+      "follow_up_directions": [
+        "什么时候不应该建索引？",
+        "慢查询优化的思路？"
+      ]
+    },
+    {
+      "id": "sd-006",
+      "content": "请解释 CAP 理论和 BASE 理论。在实际系统中如何做取舍？",
+      "skill_tags": ["系统设计", "分布式", "一致性"],
+      "difficulty": "medium",
+      "reference_points": [
+        "CAP：Consistency、Availability、Partition Tolerance，三选二",
+        "网络分区不可避免，实际上是 CP 或 AP 的选择",
+        "BASE：Basically Available、Soft state、Eventually consistent",
+        "实际案例：CP（ZooKeeper）、AP（Cassandra、DynamoDB）"
+      ],
+      "follow_up_directions": [
+        "Raft 共识算法的基本原理？",
+        "最终一致性的实现方式有哪些？"
+      ]
+    },
+    {
+      "id": "sd-007",
+      "content": "请设计一个分布式缓存系统。缓存常见的问题和解决方案有哪些？",
+      "skill_tags": ["系统设计", "缓存", "Redis"],
+      "difficulty": "medium",
+      "reference_points": [
+        "缓存穿透：布隆过滤器、缓存空值",
+        "缓存击穿：热点 key 过期 + 高并发，用互斥锁或永不过期",
+        "缓存雪崩：大量 key 同时过期，随机化过期时间",
+        "缓存一致性：Cache Aside 模式、先更新DB再删缓存",
+        "淘汰策略：LRU、LFU、TTL"
+      ],
+      "follow_up_directions": [
+        "Redis 的数据结构有哪些？各自适合什么场景？",
+        "Redis 集群的分片策略？"
+      ]
+    },
+    {
+      "id": "sd-008",
+      "content": "请设计一个实时聊天系统（类似微信/Slack）。需要考虑哪些技术点？",
+      "skill_tags": ["系统设计", "WebSocket", "实时通信"],
+      "difficulty": "hard",
+      "reference_points": [
+        "长连接：WebSocket 协议",
+        "消息存储：消息表设计、读写分离",
+        "消息投递：在线推送 + 离线拉取",
+        "群聊的扩散问题：写扩散 vs 读扩散",
+        "消息顺序性保证"
+      ],
+      "follow_up_directions": [
+        "如何实现消息的已读回执？",
+        "百万在线的 WebSocket 连接如何管理？"
+      ]
+    },
+    {
+      "id": "sd-009",
+      "content": "请解释负载均衡的常见算法和策略。在什么场景下选择哪种？",
+      "skill_tags": ["系统设计", "负载均衡", "高可用"],
+      "difficulty": "easy",
+      "reference_points": [
+        "轮询（Round Robin）、加权轮询",
+        "最少连接数",
+        "一致性哈希：适合有状态服务",
+        "四层 vs 七层负载均衡",
+        "常用工具：Nginx、HAProxy、云厂商 ALB/NLB"
+      ],
+      "follow_up_directions": [
+        "一致性哈希如何处理节点增减？",
+        "健康检查机制是怎么实现的？"
+      ]
+    },
+    {
+      "id": "sd-010",
+      "content": "请解释限流（Rate Limiting）的常见算法及其优缺点。",
+      "skill_tags": ["系统设计", "限流", "高并发"],
+      "difficulty": "medium",
+      "reference_points": [
+        "固定窗口计数器：简单但有临界问题",
+        "滑动窗口计数器：更精确，复杂度较高",
+        "漏桶算法：恒定速率处理",
+        "令牌桶算法：允许突发流量",
+        "分布式限流：Redis + Lua 脚本实现"
+      ],
+      "follow_up_directions": [
+        "API 网关中限流通常怎么实现？",
+        "如何对不同用户设置不同的限流策略？"
+      ]
+    },
+    {
+      "id": "sd-011",
+      "content": "请设计一个文件存储服务（类似 S3）。核心设计要点有哪些？",
+      "skill_tags": ["系统设计", "存储", "分布式"],
+      "difficulty": "hard",
+      "reference_points": [
+        "对象存储 vs 文件系统 vs 块存储的区别",
+        "元数据和数据分离存储",
+        "数据分片和副本策略",
+        "一致性哈希用于数据定位",
+        "大文件的分块上传和断点续传"
+      ],
+      "follow_up_directions": [
+        "如何保证数据的持久性？",
+        "CDN 和对象存储如何配合？"
+      ]
+    },
+    {
+      "id": "sd-012",
+      "content": "请解释 Docker 和容器化的核心概念。Docker 的分层存储是怎么工作的？",
+      "skill_tags": ["系统设计", "Docker", "容器化"],
+      "difficulty": "easy",
+      "reference_points": [
+        "容器 vs 虚拟机：共享内核 vs 模拟硬件",
+        "Linux namespace 实现隔离、cgroup 实现资源限制",
+        "镜像分层：UnionFS、每层只读、容器层可写",
+        "Dockerfile 最佳实践：多阶段构建、层缓存优化"
+      ],
+      "follow_up_directions": [
+        "Docker Compose 和 Kubernetes 的定位区别？",
+        "容器间如何通信？Docker 网络模式？"
+      ]
+    },
+    {
+      "id": "sd-013",
+      "content": "请解释 CI/CD 流水线的设计。一个好的部署流程应该包含哪些步骤？",
+      "skill_tags": ["系统设计", "DevOps", "CI/CD"],
+      "difficulty": "easy",
+      "reference_points": [
+        "CI：代码检查、单元测试、构建镜像",
+        "CD：自动化部署到测试/预发/生产环境",
+        "蓝绿部署、金丝雀发布、滚动更新",
+        "回滚策略",
+        "常用工具：GitHub Actions、Jenkins、GitLab CI"
+      ],
+      "follow_up_directions": [
+        "如何实现零停机部署？",
+        "Feature Flag 是什么？有什么好处？"
+      ]
+    },
+    {
+      "id": "sd-014",
+      "content": "请解释 SQL 和 NoSQL 数据库的区别。如何根据业务选择合适的数据库？",
+      "skill_tags": ["系统设计", "数据库"],
+      "difficulty": "easy",
+      "reference_points": [
+        "SQL：结构化、ACID、适合事务和复杂查询",
+        "NoSQL 类型：文档（MongoDB）、KV（Redis）、列存（Cassandra）、图（Neo4j）",
+        "CAP 理论在选型中的考量",
+        "混合使用是常见方案，不同数据用不同存储"
+      ],
+      "follow_up_directions": [
+        "MongoDB 的文档模型和关系模型的对比？",
+        "什么是 NewSQL？"
+      ]
+    },
+    {
+      "id": "sd-015",
+      "content": "请设计一个搜索引擎的核心架构（类似 Elasticsearch）。倒排索引是什么？",
+      "skill_tags": ["系统设计", "搜索", "倒排索引"],
+      "difficulty": "hard",
+      "reference_points": [
+        "倒排索引：从词到文档的映射",
+        "分词（Tokenization）和分析器",
+        "TF-IDF 和 BM25 评分",
+        "分片和副本实现扩展和高可用",
+        "近实时搜索的实现方式"
+      ],
+      "follow_up_directions": [
+        "向量搜索和传统搜索如何融合？",
+        "搜索结果的相关性排序怎么优化？"
+      ]
+    },
+    {
+      "id": "sd-016",
+      "content": "请解释 OAuth 2.0 的授权流程。常见的授权模式有哪些？",
+      "skill_tags": ["系统设计", "认证授权", "安全"],
+      "difficulty": "medium",
+      "reference_points": [
+        "四种授权模式：授权码、隐式、密码、客户端凭证",
+        "授权码模式最安全，适合有后端的 Web 应用",
+        "Access Token 和 Refresh Token 的作用",
+        "JWT 作为 Token 格式的优缺点",
+        "PKCE 扩展用于公共客户端"
+      ],
+      "follow_up_directions": [
+        "JWT 的三部分分别是什么？",
+        "如何实现 Token 的撤销？"
+      ]
+    },
+    {
+      "id": "sd-017",
+      "content": "请设计一个秒杀系统。如何应对瞬时高并发？",
+      "skill_tags": ["系统设计", "高并发", "电商"],
+      "difficulty": "hard",
+      "reference_points": [
+        "前端限流：按钮置灰、验证码",
+        "接入层：Nginx 限流、请求排队",
+        "服务层：Redis 预减库存、异步下单",
+        "数据库：乐观锁或分布式锁防超卖",
+        "消息队列削峰填谷"
+      ],
+      "follow_up_directions": [
+        "如何处理库存超卖问题？",
+        "秒杀页面的静态化怎么做？"
+      ]
+    },
+    {
+      "id": "sd-018",
+      "content": "请解释服务注册与发现机制。Consul、Nacos、etcd 有什么区别？",
+      "skill_tags": ["系统设计", "微服务", "服务发现"],
+      "difficulty": "medium",
+      "reference_points": [
+        "服务注册：服务启动时向注册中心注册地址",
+        "服务发现：消费者从注册中心获取服务地址",
+        "健康检查：心跳 / 主动检查",
+        "Consul：强一致（Raft）、多数据中心",
+        "etcd：Raft 共识、Kubernetes 底层存储"
+      ],
+      "follow_up_directions": [
+        "客户端发现和服务端发现的区别？",
+        "Kubernetes 的 Service 是怎么实现服务发现的？"
+      ]
+    },
+    {
+      "id": "sd-019",
+      "content": "请解释分布式 ID 生成方案有哪些？各自的优缺点是什么？",
+      "skill_tags": ["系统设计", "分布式"],
+      "difficulty": "medium",
+      "reference_points": [
+        "UUID：简单但无序、存储空间大",
+        "数据库自增：简单但有单点瓶颈",
+        "Snowflake 算法：时间戳 + 机器 ID + 序列号，有序且高性能",
+        "号段模式：从数据库批量获取 ID 段",
+        "Redis INCR：简单高效但依赖 Redis 可用性"
+      ],
+      "follow_up_directions": [
+        "Snowflake 的时钟回拨问题怎么处理？",
+        "有序 ID 在数据库索引中有什么优势？"
+      ]
+    },
+    {
+      "id": "sd-020",
+      "content": "请解释日志系统的设计。ELK 栈的各组件是什么？",
+      "skill_tags": ["系统设计", "可观测性", "日志"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Elasticsearch：存储和搜索日志",
+        "Logstash / Fluentd：日志采集和处理",
+        "Kibana：可视化和查询",
+        "日志级别：DEBUG/INFO/WARNING/ERROR/CRITICAL",
+        "结构化日志 vs 非结构化日志的优劣"
+      ],
+      "follow_up_directions": [
+        "分布式追踪（Tracing）和日志的关系？",
+        "日志量过大如何处理？采样策略？"
+      ]
+    }
+  ]
+}

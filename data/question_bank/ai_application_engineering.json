@@ -1,0 +1,431 @@
+{
+  "category": "AI Application Engineering",
+  "description": "Interview questions for AI application engineers covering LLM apps, RAG systems, agents, APIs, observability, deployment, and reliability.",
+  "questions": [
+    {
+      "id": "aie-001",
+      "content": "How would you design an AI mock interview system that generates questions from a job description and a resume?",
+      "skill_tags": ["LLM Application", "System Design", "RAG", "Resume Matching"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Parse JD into a skill matrix with skill weights, categories, and required flags",
+        "Parse resume into projects, skills, highlights, links, and risk signals",
+        "Use RAG to retrieve relevant interview references instead of stuffing the whole question bank",
+        "Use structured output schemas for question plans, assessments, and reports",
+        "Maintain interview state with graph nodes for analysis, planning, interviewing, and evaluation"
+      ],
+      "follow_up_directions": [
+        "How would you handle weak resume parsing quality?",
+        "How would you evaluate whether generated questions match the JD?"
+      ]
+    },
+    {
+      "id": "aie-002",
+      "content": "What are the main risks when using LLMs to generate interview questions automatically?",
+      "skill_tags": ["LLM Reliability", "Prompt Engineering", "Evaluation"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Questions may drift away from the JD or candidate background",
+        "The model may invent resume details or overfit to a single project",
+        "Difficulty may be inconsistent across candidates",
+        "Reference answers can be incomplete or misleading if sources are poor",
+        "Mitigations include structured prompts, RAG references, source tracking, and offline evaluation"
+      ],
+      "follow_up_directions": [
+        "How would you detect hallucinated resume details?",
+        "How would you control question difficulty?"
+      ]
+    },
+    {
+      "id": "aie-003",
+      "content": "How would you design streaming responses for an AI interview chat service?",
+      "skill_tags": ["FastAPI", "WebSocket", "Streaming", "LLM Application"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use WebSocket or SSE depending on bidirectional interaction requirements",
+        "Stream partial LLM tokens to reduce perceived latency",
+        "Persist conversation state and current question index outside the connection object",
+        "Handle disconnects, retries, and idempotent message processing",
+        "Separate transport protocol messages from internal agent state"
+      ],
+      "follow_up_directions": [
+        "When would you choose SSE instead of WebSocket?",
+        "How would you resume an interrupted interview session?"
+      ]
+    },
+    {
+      "id": "aie-004",
+      "content": "How would you implement structured output parsing for LLM-generated interview plans?",
+      "skill_tags": ["Structured Output", "Pydantic", "LLM Application"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Define strict Pydantic models for question items and plans",
+        "Constrain fields such as difficulty, skill tags, source ids, and reference points",
+        "Validate model output before saving it into graph state",
+        "Retry or repair invalid outputs using schema errors",
+        "Keep prompts explicit about array sizes, allowed values, and source constraints"
+      ],
+      "follow_up_directions": [
+        "How would you handle partial model output?",
+        "What fields should be required in a question plan?"
+      ]
+    },
+    {
+      "id": "aie-005",
+      "content": "How would you evaluate the quality of an AI-generated interview question plan?",
+      "skill_tags": ["Evaluation", "LLM Application", "Quality Assurance"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Measure JD skill coverage and required skill coverage",
+        "Check question diversity across categories and difficulty levels",
+        "Verify source ids when questions are adapted from RAG references",
+        "Use human review rubrics for relevance, depth, and fairness",
+        "Track candidate answer assessment consistency across similar questions"
+      ],
+      "follow_up_directions": [
+        "How would you build an automatic eval dataset?",
+        "How would you prevent the plan from asking too many questions about one skill?"
+      ]
+    },
+    {
+      "id": "aie-006",
+      "content": "What is the difference between a workflow-based LLM app and an agentic LLM app?",
+      "skill_tags": ["Agent", "Workflow", "LangGraph", "LLM Application"],
+      "difficulty": "medium",
+      "reference_points": [
+        "A workflow has a mostly predefined path and deterministic control flow",
+        "An agent can choose tools or next actions based on intermediate observations",
+        "Graph frameworks can combine deterministic nodes with agentic decision points",
+        "Workflow systems are easier to test and debug",
+        "Agentic systems are useful when the next step depends on uncertain external information"
+      ],
+      "follow_up_directions": [
+        "Which parts of an interview system should be deterministic?",
+        "Where would you allow the model to make decisions?"
+      ]
+    },
+    {
+      "id": "aie-007",
+      "content": "How would you use LangGraph to model a multi-stage AI interview pipeline?",
+      "skill_tags": ["LangGraph", "State Machine", "Agent Architecture"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Represent JD analysis, resume analysis, question planning, interviewing, evaluation, and reporting as nodes",
+        "Use typed shared state to pass skill matrix, resume profile, question plan, and assessments",
+        "Use conditional edges to switch between practice and professional modes",
+        "Use reducers for append-only fields such as messages and assessments",
+        "Keep side effects isolated in nodes for easier testing"
+      ],
+      "follow_up_directions": [
+        "How would you debug a graph state issue?",
+        "How would you support two interview rounds?"
+      ]
+    },
+    {
+      "id": "aie-008",
+      "content": "How would you design session management for multiple concurrent AI interviews?",
+      "skill_tags": ["Backend", "Concurrency", "Session Management", "FastAPI"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use a session id to isolate interview state per candidate",
+        "Store durable state in a database or checkpoint store instead of process memory only",
+        "Use Redis for short-lived session metadata and rate limiting",
+        "Avoid sharing mutable global objects across sessions",
+        "Define cleanup rules for abandoned sessions and uploaded resumes"
+      ],
+      "follow_up_directions": [
+        "What breaks if the service has multiple workers?",
+        "How would you implement session expiration?"
+      ]
+    },
+    {
+      "id": "aie-009",
+      "content": "How would you add observability to an AI interview backend?",
+      "skill_tags": ["Observability", "Tracing", "LLM Ops"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Log request ids, session ids, node names, model names, and latency",
+        "Track token usage and cost per interview session",
+        "Capture retrieval queries, source ids, and top-k scores for RAG debugging",
+        "Record structured errors for parsing, retrieval, LLM calls, and WebSocket events",
+        "Use dashboards for latency, error rate, and model output validation failures"
+      ],
+      "follow_up_directions": [
+        "What logs should not contain user data?",
+        "How would you debug a bad generated question?"
+      ]
+    },
+    {
+      "id": "aie-010",
+      "content": "How would you design rate limiting and abuse protection for an LLM-powered interview API?",
+      "skill_tags": ["API Design", "Security", "Rate Limiting", "LLM Ops"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Apply per-user, per-IP, and per-session rate limits",
+        "Limit uploaded file size and accepted file types",
+        "Set maximum interview length, token budget, and retry count",
+        "Use queueing or backpressure when model providers are slow",
+        "Monitor abnormal usage patterns and failed validation rates"
+      ],
+      "follow_up_directions": [
+        "How would you protect against prompt injection in resumes?",
+        "How would you handle provider rate limits?"
+      ]
+    },
+    {
+      "id": "aie-011",
+      "content": "How would you prevent prompt injection from a candidate's resume or job description?",
+      "skill_tags": ["Prompt Injection", "Security", "LLM Application"],
+      "difficulty": "hard",
+      "reference_points": [
+        "Treat JD and resume text as untrusted data, not instructions",
+        "Use clear prompt boundaries and label user-provided content",
+        "Extract structured facts before using them in downstream prompts",
+        "Validate generated outputs against schema and source constraints",
+        "Avoid allowing uploaded text to override system policies or tool usage rules"
+      ],
+      "follow_up_directions": [
+        "Can schema validation fully solve prompt injection?",
+        "How would you test prompt injection cases?"
+      ]
+    },
+    {
+      "id": "aie-012",
+      "content": "How would you handle resume PDF parsing quality in an AI interview product?",
+      "skill_tags": ["Resume Parsing", "Data Quality", "LLM Application"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use deterministic text extraction first, then LLM normalization",
+        "Detect empty pages, garbled text, tables, and missing project sections",
+        "Return parse warnings and confidence signals to downstream agents",
+        "Keep original text snippets for traceability",
+        "Allow fallback manual input when parsing quality is poor"
+      ],
+      "follow_up_directions": [
+        "How would you parse links and GitHub URLs?",
+        "How would you evaluate resume parser quality?"
+      ]
+    },
+    {
+      "id": "aie-013",
+      "content": "How would you match a candidate resume to a job description before question generation?",
+      "skill_tags": ["Resume Matching", "Skill Extraction", "Interview Planning"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Normalize skill names and aliases from both JD and resume",
+        "Map projects to skills based on tech stack and descriptions",
+        "Identify matched, missing, and unclear required skills",
+        "Use matching results to select project deep-dive questions",
+        "Use missing skills to create fair but focused probing questions"
+      ],
+      "follow_up_directions": [
+        "How would you handle skill aliases like JS and JavaScript?",
+        "How would you avoid penalizing a candidate for wording differences?"
+      ]
+    },
+    {
+      "id": "aie-014",
+      "content": "How would you design a two-round professional interview flow with LLM agents?",
+      "skill_tags": ["LangGraph", "Interview Design", "State Management"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Round 1 focuses on resume project depth and JD core skills",
+        "After Round 1, summarize strengths, weaknesses, and areas to probe",
+        "Round 2 uses the summary to broaden technical coverage",
+        "Store separate question plans and assessments for each round",
+        "Generate a final report that combines both rounds"
+      ],
+      "follow_up_directions": [
+        "How would you stop Round 2 from repeating Round 1?",
+        "What fields should a Round 1 summary contain?"
+      ]
+    },
+    {
+      "id": "aie-015",
+      "content": "How would you make AI-generated interview assessments more consistent?",
+      "skill_tags": ["Evaluation", "Rubric", "LLM Reliability"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use a fixed scoring rubric with explicit score ranges",
+        "Provide the question, reference points, and candidate answer together",
+        "Require structured assessment fields such as score, strengths, gaps, and follow-up need",
+        "Calibrate with golden candidate answers",
+        "Monitor score distribution and disagreement across model versions"
+      ],
+      "follow_up_directions": [
+        "How would you compare two evaluator prompts?",
+        "How would you detect scoring inflation?"
+      ]
+    },
+    {
+      "id": "aie-016",
+      "content": "How would you design fallback behavior when the LLM provider fails during an interview?",
+      "skill_tags": ["Reliability", "Backend", "LLM Ops"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Use timeouts and bounded retries for provider calls",
+        "Return graceful error messages without losing session state",
+        "Fallback to cached question plans or simpler generation modes when possible",
+        "Persist partial progress before long-running calls",
+        "Track provider error rates and switch providers only with compatible schemas"
+      ],
+      "follow_up_directions": [
+        "What should happen if assessment generation fails?",
+        "How would you make retries idempotent?"
+      ]
+    },
+    {
+      "id": "aie-017",
+      "content": "How would you store and retrieve interview conversation history efficiently?",
+      "skill_tags": ["State Management", "Database", "Conversation Memory"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Store structured messages with role, content, timestamp, and question id",
+        "Keep recent turns in active state and archive full history in durable storage",
+        "Summarize long history for downstream reporting when needed",
+        "Separate candidate answers from system and interviewer messages",
+        "Avoid sending the entire history to every LLM call if it is not needed"
+      ],
+      "follow_up_directions": [
+        "When would you summarize conversation history?",
+        "How would you support exporting a transcript?"
+      ]
+    },
+    {
+      "id": "aie-018",
+      "content": "How would you design a model abstraction layer for an AI application?",
+      "skill_tags": ["LLM Client", "Architecture", "Provider Abstraction"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Encapsulate provider-specific API clients behind a common interface",
+        "Support chat completion, structured output, and embedding separately",
+        "Keep model names, base URLs, and API keys in configuration",
+        "Normalize provider errors into application-level exceptions",
+        "Make tests use fake clients instead of real network calls"
+      ],
+      "follow_up_directions": [
+        "How would you switch from one provider to another?",
+        "How would you test structured output parsing?"
+      ]
+    },
+    {
+      "id": "aie-019",
+      "content": "How would you handle cost control for an LLM-based interview product?",
+      "skill_tags": ["Cost Control", "LLM Ops", "Backend"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Track token usage per session and per graph node",
+        "Limit maximum rounds, follow-ups, and report length",
+        "Use smaller models for extraction or classification when quality is sufficient",
+        "Cache deterministic or repeated outputs such as JD analysis when appropriate",
+        "Use RAG to keep prompts focused rather than stuffing full corpora"
+      ],
+      "follow_up_directions": [
+        "Where would caching be risky?",
+        "How would you estimate cost before starting an interview?"
+      ]
+    },
+    {
+      "id": "aie-020",
+      "content": "How would you design versioning for prompts and evaluation rubrics?",
+      "skill_tags": ["Prompt Management", "Evaluation", "LLM Ops"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Store prompt templates with explicit versions",
+        "Log prompt version, model version, and schema version for each run",
+        "Use golden cases to compare prompt changes",
+        "Separate system instructions from dynamic user context",
+        "Roll out changes gradually and monitor quality metrics"
+      ],
+      "follow_up_directions": [
+        "How would you rollback a bad prompt update?",
+        "What metrics would you compare between prompt versions?"
+      ]
+    },
+    {
+      "id": "aie-021",
+      "content": "How would you design file upload handling for resumes in a FastAPI service?",
+      "skill_tags": ["FastAPI", "File Upload", "Security"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Validate file type, size, and extension before parsing",
+        "Store uploads in a controlled directory with generated names",
+        "Avoid trusting original filenames",
+        "Clean up temporary files after parsing or session expiration",
+        "Return structured parse errors to the client"
+      ],
+      "follow_up_directions": [
+        "How would you prevent path traversal?",
+        "How would you support DOCX and PDF?"
+      ]
+    },
+    {
+      "id": "aie-022",
+      "content": "How would you design a frontend chat UI for an AI interview session?",
+      "skill_tags": ["React", "WebSocket", "UX", "Interview Product"],
+      "difficulty": "easy",
+      "reference_points": [
+        "Show current question, progress, skill tags, and difficulty",
+        "Stream interviewer messages and preserve candidate answers",
+        "Handle loading, reconnecting, and error states clearly",
+        "Disable duplicate submissions while an answer is being processed",
+        "Provide report and transcript views after completion"
+      ],
+      "follow_up_directions": [
+        "How would you handle reconnect in the UI?",
+        "What state should be kept on the client versus server?"
+      ]
+    },
+    {
+      "id": "aie-023",
+      "content": "How would you test a LangGraph-based AI interview workflow?",
+      "skill_tags": ["Testing", "LangGraph", "LLM Application"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Unit test deterministic helpers such as skill matching and query building",
+        "Use fake LLM clients for graph node tests",
+        "Validate state transitions for practice and professional modes",
+        "Test schema validation failures and retry paths",
+        "Run end-to-end smoke tests with a small sample JD and resume"
+      ],
+      "follow_up_directions": [
+        "How would you avoid flaky tests with real LLM calls?",
+        "Which parts should be integration tested?"
+      ]
+    },
+    {
+      "id": "aie-024",
+      "content": "How would you design graceful degradation when RAG retrieval returns poor results?",
+      "skill_tags": ["RAG", "Fallback", "LLM Reliability"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Detect low scores, empty results, or low source diversity",
+        "Fallback to skill-matrix-only generation when retrieval is unavailable",
+        "Use broader queries or category-level retrieval as a second attempt",
+        "Tell the planner when references are weak instead of pretending they are reliable",
+        "Log poor retrieval cases for offline dataset improvement"
+      ],
+      "follow_up_directions": [
+        "What threshold would you use for low confidence?",
+        "How would you improve the question bank based on failures?"
+      ]
+    },
+    {
+      "id": "aie-025",
+      "content": "How would you design source tracking for generated interview questions?",
+      "skill_tags": ["RAG", "Source Tracking", "Structured Output"],
+      "difficulty": "medium",
+      "reference_points": [
+        "Expose source ids and source categories in the structured question model",
+        "Only allow source ids that were actually retrieved in the current planning call",
+        "Track child chunk ids when using parent-child retrieval",
+        "Use source tracking for debugging and offline quality review",
+        "Leave source fields empty for fully original questions"
+      ],
+      "follow_up_directions": [
+        "How would you prevent the model from inventing source ids?",
+        "How would source tracking help with evaluation?"
+      ]
+    }
+  ]
+}

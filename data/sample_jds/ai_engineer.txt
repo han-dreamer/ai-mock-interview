@@ -1,0 +1,23 @@
+AI 应用开发工程师（实习）
+
+职位描述：
+1. 参与公司 AI 产品的后端开发与 Agent 系统搭建
+2. 负责 RAG 系统的设计、开发与优化
+3. 基于 LangChain/LangGraph 等框架开发多智能体应用
+4. 参与 LLM 应用的 Prompt Engineering 和效果优化
+5. 编写技术文档和单元测试
+
+任职要求：
+- 计算机相关专业本科及以上在读
+- 熟悉 Python 编程，了解异步编程和常用数据结构
+- 了解大语言模型基本原理（Transformer、Attention 等）
+- 熟悉至少一种 Agent 开发框架（LangChain、LangGraph、AutoGen 等）
+- 了解 RAG 技术栈（向量数据库、Embedding、检索策略）
+- 熟悉 FastAPI 或 Flask 等 Web 框架
+- 了解 Docker 基本使用
+
+加分项：
+- 有 Agent / RAG 相关项目经验
+- 了解 Prompt Engineering 最佳实践
+- 了解系统设计基础知识
+- 有良好的英文文档阅读能力

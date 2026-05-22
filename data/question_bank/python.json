@@ -1,0 +1,362 @@
+{
+  "category": "Python",
+  "questions": [
+    {
+      "id": "py-001",
+      "content": "请解释 Python 中的 GIL（全局解释器锁）是什么？它对多线程程序有什么影响？如何绕过 GIL 的限制？",
+      "skill_tags": ["Python", "并发编程", "多线程"],
+      "difficulty": "medium",
+      "reference_points": [
+        "GIL 是 CPython 中的互斥锁，同一时刻只允许一个线程执行 Python 字节码",
+        "GIL 对 CPU 密集型任务影响大，多线程无法利用多核",
+        "IO 密集型任务受影响较小，因为线程在等待 IO 时会释放 GIL",
+        "绕过方式：multiprocessing 模块、C 扩展释放 GIL、使用其他解释器如 PyPy"
+      ],
+      "follow_up_directions": [
+        "Python 3.12+ 的 nogil 提案了解吗？",
+        "asyncio 和多线程在 IO 密集场景下如何选择？"
+      ]
+    },
+    {
+      "id": "py-002",
+      "content": "请解释 Python 中的装饰器（decorator）原理，并手写一个带参数的装饰器。",
+      "skill_tags": ["Python", "装饰器", "函数式编程"],
+      "difficulty": "medium",
+      "reference_points": [
+        "装饰器本质是一个接收函数并返回函数的高阶函数",
+        "@decorator 语法糖等价于 func = decorator(func)",
+        "带参数的装饰器需要三层嵌套函数",
+        "应提到 functools.wraps 保留原函数元信息"
+      ],
+      "follow_up_directions": [
+        "类装饰器是怎么实现的？",
+        "装饰器在实际项目中有哪些常见用途？"
+      ]
+    },
+    {
+      "id": "py-003",
+      "content": "Python 中 list、tuple、set、dict 的底层实现分别是什么？各自的时间复杂度有什么区别？",
+      "skill_tags": ["Python", "数据结构"],
+      "difficulty": "medium",
+      "reference_points": [
+        "list 是动态数组，append O(1) 均摊，insert O(n)",
+        "tuple 是不可变数组，比 list 更轻量",
+        "set 底层是哈希表，查找/添加/删除平均 O(1)",
+        "dict 也是哈希表，Python 3.7+ 保持插入顺序"
+      ],
+      "follow_up_directions": [
+        "dict 的哈希冲突是怎么解决的？",
+        "什么时候应该用 tuple 而不是 list？"
+      ]
+    },
+    {
+      "id": "py-004",
+      "content": "请解释 Python 的异步编程模型。async/await 的底层原理是什么？与多线程相比有什么优劣？",
+      "skill_tags": ["Python", "异步编程", "asyncio"],
+      "difficulty": "hard",
+      "reference_points": [
+        "asyncio 基于事件循环（event loop）+ 协程（coroutine）",
+        "async def 定义的是协程函数，返回协程对象",
+        "await 会暂停当前协程，让出控制权给事件循环",
+        "单线程并发，避免了锁的问题，适合 IO 密集型",
+        "不适合 CPU 密集型任务，因为是单线程"
+      ],
+      "follow_up_directions": [
+        "asyncio.gather 和 asyncio.wait 的区别？",
+        "如何在 asyncio 中调用同步阻塞函数？"
+      ]
+    },
+    {
+      "id": "py-005",
+      "content": "Python 的内存管理机制是怎样的？垃圾回收是如何工作的？",
+      "skill_tags": ["Python", "内存管理", "垃圾回收"],
+      "difficulty": "hard",
+      "reference_points": [
+        "引用计数是主要机制，对象引用为 0 时立即回收",
+        "引用计数无法处理循环引用，因此有分代垃圾回收",
+        "分代 GC 分为 0/1/2 三代，新对象在第 0 代",
+        "gc 模块可以手动控制垃圾回收行为",
+        "__del__ 方法的陷阱和注意事项"
+      ],
+      "follow_up_directions": [
+        "什么是弱引用（weakref）？什么场景下使用？",
+        "如何排查 Python 程序的内存泄漏？"
+      ]
+    },
+    {
+      "id": "py-006",
+      "content": "解释 Python 中的上下文管理器（context manager）。with 语句的原理是什么？如何自定义？",
+      "skill_tags": ["Python", "上下文管理器"],
+      "difficulty": "easy",
+      "reference_points": [
+        "with 语句通过 __enter__ 和 __exit__ 方法实现资源管理",
+        "可以用类实现或用 contextlib.contextmanager 装饰器实现",
+        "常见用途：文件操作、数据库连接、锁管理",
+        "__exit__ 接收异常信息，可以选择是否抑制异常"
+      ],
+      "follow_up_directions": [
+        "contextlib 模块还有哪些有用的工具？",
+        "异步上下文管理器 async with 是怎么回事？"
+      ]
+    },
+    {
+      "id": "py-007",
+      "content": "请解释 Python 中的元类（metaclass）。什么场景下需要使用元类？",
+      "skill_tags": ["Python", "元编程", "高级特性"],
+      "difficulty": "hard",
+      "reference_points": [
+        "元类是类的类，控制类的创建过程",
+        "type 是默认元类，class Foo(metaclass=MyMeta) 自定义",
+        "__new__ 创建类对象，__init__ 初始化类对象",
+        "实际场景：ORM 框架（如 Django Model）、API 注册、单例模式"
+      ],
+      "follow_up_directions": [
+        "__init_subclass__ 和元类的区别？",
+        "能否用装饰器替代元类的大部分场景？"
+      ]
+    },
+    {
+      "id": "py-008",
+      "content": "Python 中的迭代器和生成器有什么区别？生成器的 send() 方法有什么用？",
+      "skill_tags": ["Python", "迭代器", "生成器"],
+      "difficulty": "medium",
+      "reference_points": [
+        "迭代器实现 __iter__ 和 __next__ 方法",
+        "生成器是用 yield 的函数，自动实现迭代器协议",
+        "生成器是惰性求值，节省内存",
+        "send() 可以向生成器内部发送值，yield 表达式的返回值"
+      ],
+      "follow_up_directions": [
+        "yield from 的作用是什么？",
+        "生成器和协程的关系是什么？"
+      ]
+    },
+    {
+      "id": "py-009",
+      "content": "解释 Python 的描述符协议（descriptor protocol）。property 的底层原理是什么？",
+      "skill_tags": ["Python", "描述符", "高级特性"],
+      "difficulty": "hard",
+      "reference_points": [
+        "描述符是实现了 __get__/__set__/__delete__ 方法的对象",
+        "数据描述符（有 __set__）优先级高于实例字典",
+        "非数据描述符（只有 __get__）优先级低于实例字典",
+        "property 是数据描述符的典型实现"
+      ],
+      "follow_up_directions": [
+        "classmethod 和 staticmethod 也是描述符吗？",
+        "描述符在 ORM 中是怎么应用的？"
+      ]
+    },
+    {
+      "id": "py-010",
+      "content": "请解释 Python 中的深拷贝和浅拷贝的区别，以及可能遇到的陷阱。",
+      "skill_tags": ["Python", "数据结构"],
+      "difficulty": "easy",
+      "reference_points": [
+        "浅拷贝只复制顶层对象，嵌套对象仍然是引用",
+        "深拷贝递归复制所有嵌套对象",
+        "copy.copy() 浅拷贝，copy.deepcopy() 深拷贝",
+        "list.copy()、dict.copy()、切片 [:] 都是浅拷贝"
+      ],
+      "follow_up_directions": [
+        "deepcopy 如何处理循环引用？",
+        "自定义对象的拷贝行为怎么控制？"
+      ]
+    },
+    {
+      "id": "py-011",
+      "content": "请解释 Python 的 MRO（方法解析顺序）和多重继承机制。",
+      "skill_tags": ["Python", "面向对象", "继承"],
+      "difficulty": "medium",
+      "reference_points": [
+        "MRO 使用 C3 线性化算法",
+        "可以通过 ClassName.__mro__ 或 ClassName.mro() 查看",
+        "super() 按照 MRO 顺序调用，不一定是直接父类",
+        "菱形继承问题及其解决方式"
+      ],
+      "follow_up_directions": [
+        "Mixin 模式是什么？在 Python 中怎么用？",
+        "组合优于继承，你怎么理解？"
+      ]
+    },
+    {
+      "id": "py-012",
+      "content": "Python 中的 __slots__ 是什么？什么时候应该使用它？",
+      "skill_tags": ["Python", "性能优化", "内存"],
+      "difficulty": "easy",
+      "reference_points": [
+        "__slots__ 限制实例属性，用元组/列表定义允许的属性名",
+        "避免了 __dict__ 的创建，节省内存",
+        "属性访问速度略有提升",
+        "不能动态添加 __slots__ 之外的属性"
+      ],
+      "follow_up_directions": [
+        "__slots__ 和继承配合时有什么注意事项？",
+        "在什么规模下使用 __slots__ 的收益才明显？"
+      ]
+    },
+    {
+      "id": "py-013",
+      "content": "请解释 Python 中异常处理的最佳实践。try/except/else/finally 各块的执行时机是什么？",
+      "skill_tags": ["Python", "异常处理"],
+      "difficulty": "easy",
+      "reference_points": [
+        "try 块执行可能出错的代码",
+        "except 捕获指定异常，应尽量精确捕获",
+        "else 在 try 成功且无异常时执行",
+        "finally 无论如何都执行，用于清理资源",
+        "避免裸 except，应捕获具体异常类型"
+      ],
+      "follow_up_directions": [
+        "自定义异常类的最佳实践？",
+        "异常链（exception chaining）是什么？"
+      ]
+    },
+    {
+      "id": "py-014",
+      "content": "Python 中的 dataclass 和普通 class 有什么区别？与 Pydantic 的 BaseModel 有什么不同？",
+      "skill_tags": ["Python", "数据类", "Pydantic"],
+      "difficulty": "medium",
+      "reference_points": [
+        "dataclass 自动生成 __init__、__repr__、__eq__ 等方法",
+        "减少样板代码，适合纯数据容器",
+        "Pydantic BaseModel 提供运行时数据验证和序列化",
+        "Pydantic 适合 API 数据校验，dataclass 适合内部数据结构"
+      ],
+      "follow_up_directions": [
+        "dataclass 的 frozen=True 和 Pydantic 的 model_config 有什么对应？",
+        "attrs 库和 dataclass 的区别？"
+      ]
+    },
+    {
+      "id": "py-015",
+      "content": "请说明 Python 中的类型提示（type hints）系统。运行时会进行类型检查吗？",
+      "skill_tags": ["Python", "类型系统"],
+      "difficulty": "easy",
+      "reference_points": [
+        "类型提示是 PEP 484 引入的，Python 3.5+",
+        "运行时不检查类型，需要 mypy 等工具做静态检查",
+        "常用类型：Optional、Union、List、Dict、TypeVar、Generic",
+        "Python 3.10+ 支持 X | Y 替代 Union[X, Y]"
+      ],
+      "follow_up_directions": [
+        "TypeVar 和 Generic 怎么配合使用？",
+        "Protocol 类是什么？和 ABC 有什么区别？"
+      ]
+    },
+    {
+      "id": "py-016",
+      "content": "请解释 Python 中 import 的工作机制。模块搜索路径是怎样的？循环导入怎么解决？",
+      "skill_tags": ["Python", "模块系统"],
+      "difficulty": "medium",
+      "reference_points": [
+        "import 先检查 sys.modules 缓存",
+        "搜索路径：sys.path（当前目录、PYTHONPATH、标准库、site-packages）",
+        "相对导入 vs 绝对导入",
+        "循环导入可以通过延迟导入、重构模块结构解决"
+      ],
+      "follow_up_directions": [
+        "__init__.py 的作用是什么？",
+        "importlib 模块的高级用法？"
+      ]
+    },
+    {
+      "id": "py-017",
+      "content": "什么是 Python 的 LEGB 作用域规则？闭包是怎么工作的？",
+      "skill_tags": ["Python", "作用域", "闭包"],
+      "difficulty": "medium",
+      "reference_points": [
+        "LEGB：Local → Enclosing → Global → Built-in",
+        "闭包是内部函数引用了外部函数的变量",
+        "闭包的变量存储在 __closure__ 中",
+        "nonlocal 关键字用于修改外层作用域变量"
+      ],
+      "follow_up_directions": [
+        "闭包和装饰器的关系？",
+        "为什么说 Python 没有真正的块级作用域？"
+      ]
+    },
+    {
+      "id": "py-018",
+      "content": "请解释 Python 中 __new__ 和 __init__ 的区别。如何用它们实现单例模式？",
+      "skill_tags": ["Python", "面向对象", "设计模式"],
+      "difficulty": "medium",
+      "reference_points": [
+        "__new__ 创建实例（类方法），__init__ 初始化实例（实例方法）",
+        "__new__ 先于 __init__ 调用",
+        "单例模式通过 __new__ 控制只创建一个实例",
+        "也可以用模块级变量、装饰器、元类实现单例"
+      ],
+      "follow_up_directions": [
+        "不可变类型（如 int、str）为什么需要 __new__？",
+        "工厂模式和单例模式的区别？"
+      ]
+    },
+    {
+      "id": "py-019",
+      "content": "请介绍 Python 中常用的并发方案及其适用场景：threading、multiprocessing、asyncio、concurrent.futures。",
+      "skill_tags": ["Python", "并发编程"],
+      "difficulty": "hard",
+      "reference_points": [
+        "threading：IO 密集型，受 GIL 限制",
+        "multiprocessing：CPU 密集型，真正的并行",
+        "asyncio：IO 密集型，单线程高并发",
+        "concurrent.futures：统一的线程池/进程池接口",
+        "选型原则：IO 密集用 asyncio，CPU 密集用 multiprocessing"
+      ],
+      "follow_up_directions": [
+        "进程间通信有哪些方式？",
+        "实际项目中你用过哪种并发方案？遇到过什么坑？"
+      ]
+    },
+    {
+      "id": "py-020",
+      "content": "Python 中的魔术方法（dunder methods）有哪些常用的？请举例说明它们的用途。",
+      "skill_tags": ["Python", "面向对象"],
+      "difficulty": "easy",
+      "reference_points": [
+        "__str__ 和 __repr__：字符串表示",
+        "__eq__、__lt__ 等：比较运算符重载",
+        "__len__、__getitem__、__iter__：容器协议",
+        "__call__：让实例可调用",
+        "__enter__/__exit__：上下文管理器"
+      ],
+      "follow_up_directions": [
+        "__hash__ 和 __eq__ 的关系是什么？",
+        "运算符重载在实际项目中有哪些应用？"
+      ]
+    },
+    {
+      "id": "py-021",
+      "content": "请解释 Python 的列表推导式、字典推导式和生成器表达式的区别和适用场景。",
+      "skill_tags": ["Python", "数据处理"],
+      "difficulty": "easy",
+      "reference_points": [
+        "列表推导式 [x for x in ...] 立即生成完整列表",
+        "生成器表达式 (x for x in ...) 惰性求值，节省内存",
+        "字典推导式 {k: v for k, v in ...} 构建字典",
+        "大数据量时优先用生成器表达式"
+      ],
+      "follow_up_directions": [
+        "推导式中能使用 walrus 运算符 := 吗？",
+        "嵌套推导式的可读性问题怎么处理？"
+      ]
+    },
+    {
+      "id": "py-022",
+      "content": "你在 Python 项目中如何管理依赖和虚拟环境？了解 Poetry、pip-tools、uv 吗？",
+      "skill_tags": ["Python", "工程实践", "依赖管理"],
+      "difficulty": "easy",
+      "reference_points": [
+        "venv 是标准库的虚拟环境方案",
+        "pip + requirements.txt 是传统方式",
+        "Poetry 提供依赖解析和锁文件",
+        "uv 是 Rust 实现的高性能包管理器，兼容 pip"
+      ],
+      "follow_up_directions": [
+        "pyproject.toml 和 setup.py 的区别？",
+        "Docker 中如何管理 Python 依赖？"
+      ]
+    }
+  ]
+}

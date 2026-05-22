@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ragas-001",
+    "question": "What is Parent-Child Chunking in RAG?",
+    "ground_truth": "Parent-Child Chunking retrieves small child chunks for better recall and hydrates the corresponding parent document so generation receives complete context.",
+    "expected_source_ids": ["rag-adv-001", "rag-adv-010"],
+    "tags": ["RAG", "Chunking", "Parent-Child Retrieval"]
+  },
+  {
+    "id": "ragas-002",
+    "question": "How does structure-aware chunking differ from fixed-size chunking?",
+    "ground_truth": "Structure-aware chunking respects semantic fields such as title, section, question, answer, and metadata, while fixed-size chunking splits mainly by token or character count.",
+    "expected_source_ids": ["rag-adv-002"],
+    "tags": ["RAG", "Chunking", "Document Processing"]
+  },
+  {
+    "id": "ragas-003",
+    "question": "Why add contextual headers to retrieval chunks?",
+    "ground_truth": "Contextual headers add source context such as category, difficulty, skill tags, chunk type, and parent question so isolated chunks are easier for embedding and keyword retrieval to interpret.",
+    "expected_source_ids": ["rag-adv-003"],
+    "tags": ["RAG", "Contextual Retrieval", "Chunking"]
+  },
+  {
+    "id": "ragas-004",
+    "question": "What is query rewriting in a RAG system?",
+    "ground_truth": "Query rewriting transforms a user query into retrieval-friendly forms by expanding terms, adding domain language, or splitting the request into multiple subqueries to improve recall.",
+    "expected_source_ids": ["rag-adv-005"],
+    "tags": ["RAG", "Query Rewriting", "Retrieval"]
+  },
+  {
+    "id": "ragas-005",
+    "question": "How does hybrid retrieval combine vector search and BM25?",
+    "ground_truth": "Hybrid retrieval combines semantic vector search with BM25 keyword search, then fuses rankings so both meaning-level similarity and exact technical term matching can contribute.",
+    "expected_source_ids": ["rag-adv-006"],
+    "tags": ["RAG", "Hybrid Retrieval", "BM25", "Vector Search"]
+  },
+  {
+    "id": "ragas-006",
+    "question": "What problem does Reciprocal Rank Fusion solve?",
+    "ground_truth": "Reciprocal Rank Fusion combines multiple ranked result lists without requiring their raw scores to be comparable, giving higher final scores to documents that rank well across retrievers.",
+    "expected_source_ids": ["rag-adv-007"],
+    "tags": ["RAG", "RRF", "Ranking"]
+  },
+  {
+    "id": "ragas-007",
+    "question": "How would you design metadata-aware reranking for an interview question RAG system?",
+    "ground_truth": "Metadata-aware reranking can boost questions that overlap required JD skills, resume projects, missing skills, target difficulty, and second-round categories while controlling diversity.",
+    "expected_source_ids": ["rag-adv-009"],
+    "tags": ["RAG", "Reranking", "Metadata", "Interview Planning"]
+  },
+  {
+    "id": "ragas-008",
+    "question": "How would you evaluate retrieval quality in a RAG system?",
+    "ground_truth": "Retrieval quality can be evaluated with golden queries and expected document ids using Hit@K, Recall@K, and MRR, and by comparing vector-only, hybrid, reranked, and hydrated variants.",
+    "expected_source_ids": ["rag-adv-011"],
+    "tags": ["RAG", "Evaluation", "Retrieval Metrics"]
+  },
+  {
+    "id": "ragas-009",
+    "question": "How would you design an AI mock interview system from a JD and resume?",
+    "ground_truth": "An AI mock interview system should parse the JD into a skill matrix, parse the resume into projects and skills, retrieve relevant references with RAG, and generate structured question plans and reports.",
+    "expected_source_ids": ["aie-001"],
+    "tags": ["LLM Application", "System Design", "RAG", "Resume Matching"]
+  },
+  {
+    "id": "ragas-010",
+    "question": "How can LangGraph model a multi-stage AI interview pipeline?",
+    "ground_truth": "LangGraph can model JD analysis, resume analysis, question planning, interviewing, evaluation, and reporting as graph nodes that pass typed shared state through conditional edges.",
+    "expected_source_ids": ["aie-007"],
+    "tags": ["LangGraph", "State Machine", "Agent Architecture"]
+  },
+  {
+    "id": "ragas-011",
+    "question": "How would you prevent prompt injection from a resume or job description?",
+    "ground_truth": "Treat JD and resume text as untrusted data, isolate it with clear prompt boundaries, extract structured facts, validate outputs, and prevent uploaded text from overriding system instructions.",
+    "expected_source_ids": ["aie-011"],
+    "tags": ["Prompt Injection", "Security", "LLM Application"]
+  },
+  {
+    "id": "ragas-012",
+    "question": "How would you design streaming responses for an AI interview chat service?",
+    "ground_truth": "Use WebSocket or SSE depending on interaction needs, stream partial LLM tokens, persist session state outside the connection, and handle disconnects, retries, and idempotent messages.",
+    "expected_source_ids": ["aie-003"],
+    "tags": ["FastAPI", "WebSocket", "Streaming", "LLM Application"]
+  }
+]
