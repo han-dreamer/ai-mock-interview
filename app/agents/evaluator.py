@@ -146,7 +146,8 @@ async def evaluate_interview(state: InterviewState) -> dict:
 
         user_content += (
             f"## Full Interview Transcript (Both Rounds)\n{transcript}\n\n"
-            f"Based on the above covering both rounds, produce a comprehensive dual-round evaluation."
+            f"请基于以上两轮面试信息生成完整的双轮面试评价报告。"
+            f"报告中所有候选人可见文本必须使用简体中文。"
         )
 
         llm = get_llm_client()
@@ -170,7 +171,8 @@ async def evaluate_interview(state: InterviewState) -> dict:
     user_content += f"## Per-Question Assessments\n{assessments_text}\n\n"
     user_content += (
         f"## Full Interview Transcript\n{transcript}\n\n"
-        f"Based on the above, produce a comprehensive evaluation report."
+        f"请基于以上内容生成完整面试评价报告。"
+        f"报告中所有候选人可见文本必须使用简体中文。"
     )
 
     llm = get_llm_client()
@@ -213,7 +215,7 @@ async def summarize_round1(state: InterviewState) -> dict:
         f"## Per-Question Assessments\n{assessments_text}\n\n"
         f"## Full Round 1 Transcript\n{transcript}\n\n"
         f"Total questions asked in Round 1: {num_assessed}\n\n"
-        f"Produce an intermediate Round 1 summary."
+        f"请生成一面阶段总结。所有候选人可见文本必须使用简体中文。"
     )
 
     llm = get_llm_client()
@@ -274,9 +276,9 @@ async def evaluate_practice(state: InterviewState) -> dict:
         f"## Per-Question Assessments\n{assessments_text}\n\n"
         f"## Full Interview Transcript\n{transcript}\n\n"
         f"Total questions answered: {num_answered}\n\n"
-        f"Based on the above, produce a practice evaluation report. "
-        f"For any question where the candidate scored below 8, include a "
-        f"clear reference answer in Chinese (中文) that covers the missed points."
+        f"请基于以上内容生成练习模式评估报告。"
+        f"所有候选人可见文本必须使用简体中文。"
+        f"对于得分低于 8 分的问题，请给出覆盖遗漏点的中文参考答案。"
     )
 
     llm = get_llm_client()

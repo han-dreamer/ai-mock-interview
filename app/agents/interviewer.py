@@ -54,11 +54,11 @@ async def ask_question(state: InterviewState) -> dict:
     conversation.append({
         "role": "user",
         "content": (
-            f"[INTERNAL — not visible to candidate] "
-            f"Now ask Question #{question.id}: {question.content}\n"
-            f"Skills tested: {', '.join(question.skill_tags)}\n"
-            f"Difficulty: {question.difficulty}\n"
-            f"Just ask the question naturally, as a human interviewer would."
+            f"[内部指令，不要展示给候选人] "
+            f"现在请用简体中文提问第 {question.id} 题：{question.content}\n"
+            f"考察技能：{', '.join(question.skill_tags)}\n"
+            f"难度：{question.difficulty}\n"
+            f"请像真实面试官一样自然地问出这一个问题。不要使用英文段落。"
         ),
     })
 
@@ -95,16 +95,16 @@ async def ask_follow_up(state: InterviewState) -> dict:
     missed_hint = ""
     if latest_assessment and latest_assessment.missed_points:
         missed_hint = (
-            f"\n[INTERNAL] The candidate missed these points: "
-            f"{', '.join(latest_assessment.missed_points[:3])}. "
-            f"Follow-up reason: {latest_assessment.follow_up_reason or 'explore deeper'}. "
-            f"Ask a natural follow-up that guides them toward these areas."
+            f"\n[内部指令] 候选人遗漏了这些点："
+            f"{', '.join(latest_assessment.missed_points[:3])}。"
+            f"追问原因：{latest_assessment.follow_up_reason or '需要进一步深入'}。"
+            f"请用简体中文自然追问，引导候选人补充这些方面。"
         )
 
     follow_up_dirs = ""
     if question and question.follow_up_directions:
         follow_up_dirs = (
-            f"\n[INTERNAL] Possible follow-up directions: "
+            f"\n[内部指令] 可选追问方向："
             f"{', '.join(question.follow_up_directions)}"
         )
 
@@ -112,8 +112,8 @@ async def ask_follow_up(state: InterviewState) -> dict:
     conversation.append({
         "role": "user",
         "content": (
-            f"[INTERNAL] The candidate's answer was incomplete. "
-            f"Please ask a targeted follow-up question to dig deeper."
+            f"[内部指令] 候选人的回答还不完整。"
+            f"请用简体中文提出一个有针对性的追问，继续深入考察。"
             f"{missed_hint}{follow_up_dirs}"
         ),
     })
@@ -159,7 +159,7 @@ async def assess_answer(state: InterviewState) -> dict:
         + "\n".join(f"- {p}" for p in question.reference_points)
         + f"\n\nCandidate's answer:\n{answer}\n\n"
         f"Current follow-up count for this question: {follow_up_count}/{max_follow_ups}\n\n"
-        f"Produce a structured assessment."
+        f"Produce a structured assessment. All free-text fields must be Simplified Chinese."
     )
 
     assessment = await llm.chat_structured(

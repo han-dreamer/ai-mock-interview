@@ -240,6 +240,11 @@ class LLMClient:
             "\n\n## OUTPUT FORMAT\n"
             "You MUST respond with ONLY a valid JSON object (no markdown, no extra text).\n"
             f"The JSON must have these fields:\n{field_desc}\n\n"
+            "LANGUAGE RULE: For every user-visible free-text value in the JSON, "
+            "use Simplified Chinese. Keep technical names such as FastAPI, LangGraph, "
+            "RAG, WebSocket, StateGraph, React, Redis, Docker and API in English when "
+            "appropriate, but write explanations, evidence, summaries, suggestions, "
+            "questions and follow-up directions in Chinese.\n\n"
             "IMPORTANT: Fill in actual values based on your analysis. "
             "Do NOT return the schema definition or type descriptions — return real data only."
         )

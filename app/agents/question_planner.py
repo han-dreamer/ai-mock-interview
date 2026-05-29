@@ -153,10 +153,9 @@ async def plan_questions(state: InterviewState) -> dict:
         f"{_format_memory_context(state)}\n\n"
         f"{_format_retrieved_questions(retrieved)}\n\n"
         f"{_source_tracking_instruction()}\n\n"
-        "Based on the skill matrix and reference questions above, "
-        "create an interview question plan with 5-8 questions. "
-        "Use long-term memory to emphasize weak skills and avoid repeating questions "
-        "the candidate has already handled well."
+        "请基于以上技能矩阵和参考题，生成 5-8 道面试题。"
+        "题目正文、参考要点和追问方向必须使用简体中文；技术名词可以保留英文。"
+        "请结合长期记忆强调薄弱技能，并避免重复候选人已经表现较好的题目。"
     )
 
     llm = get_llm_client()
@@ -292,11 +291,10 @@ async def plan_questions_with_resume(state: InterviewState) -> dict:
         f"{_format_memory_context(state)}\n\n"
         f"{_format_retrieved_questions(retrieved)}\n\n"
         f"{_source_tracking_instruction()}\n\n"
-        "Based on the skill matrix, candidate's resume, and reference questions above, "
-        "create an interview question plan with 6-8 questions. "
-        "At least half should be based on the candidate's projects and experience. "
-        "Use long-term memory to revisit weak skills, historical project risks, and "
-        "previously missed interview points."
+        "请基于以上技能矩阵、候选人简历和参考题，生成 6-8 道一面技术深度题。"
+        "题目正文、参考要点和追问方向必须使用简体中文；技术名词可以保留英文。"
+        "至少一半题目应围绕候选人的项目和经历展开。"
+        "请结合长期记忆回访薄弱技能、历史项目风险和曾经遗漏的面试点。"
     )
 
     llm = get_llm_client()
@@ -375,11 +373,10 @@ async def plan_questions_round2(state: InterviewState) -> dict:
         f"{_format_memory_context(state)}\n\n"
         f"{_format_retrieved_questions(retrieved)}\n\n"
         f"{_source_tracking_instruction()}\n\n"
-        "Based on the skill matrix, Round 1 performance summary, and reference "
-        "questions above, create a Round 2 interview plan with 4-6 questions "
-        "focusing on technical breadth, system design, and emerging AI technologies. "
-        "Use long-term memory only as a personalization signal, with Round 1 evidence "
-        "taking priority for this session."
+        "请基于以上技能矩阵、一面表现总结和参考题，生成 4-6 道二面技术广度题。"
+        "题目正文、参考要点和追问方向必须使用简体中文；技术名词可以保留英文。"
+        "重点考察技术广度、系统设计、架构取舍和新兴 AI 技术。"
+        "长期记忆只作为个性化信号，本场一面证据优先级更高。"
     )
 
     llm = get_llm_client()

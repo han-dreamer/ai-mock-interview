@@ -9,14 +9,14 @@ from pydantic import BaseModel, Field
 
 class QuestionItem(BaseModel):
     id: int = Field(..., description="Question sequence number (1-based)")
-    content: str = Field(..., description="The interview question text")
+    content: str = Field(..., description="面试题正文，必须使用简体中文")
     skill_tags: list[str] = Field(..., description="Skills this question tests")
     difficulty: Literal["easy", "medium", "hard"] = Field(..., description="Difficulty level")
     reference_points: list[str] = Field(
-        ..., min_length=1, description="Key points a good answer should cover"
+        ..., min_length=1, description="优秀回答应覆盖的关键点，必须使用简体中文"
     )
     follow_up_directions: list[str] = Field(
-        default_factory=list, description="Possible follow-up question directions"
+        default_factory=list, description="可能的追问方向，必须使用简体中文"
     )
     source_ids: list[str] = Field(
         default_factory=list,
