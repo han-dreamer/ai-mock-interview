@@ -170,6 +170,7 @@ export function App() {
     ws.onopen = () => {
       setConnection("open");
       setStatus("连接成功，面试官正在准备第一轮问题。");
+      ws.send(JSON.stringify({ type: "start_interview" }));
     };
 
     ws.onmessage = (event) => {

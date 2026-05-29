@@ -164,12 +164,13 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
     logger.info("WS connected: session=%s", session_id)
 
     try:
+        current_turn_delivered = False
         state = await _ensure_started(websocket, session_id)
         if state is None:
             return
         if await _send_report_if_ready(websocket, session_id, state):
             return
-        await _send_current_turn(websocket, state)
+        current_turn_delivered = await _send_current_turn(websocket, state)
 
         while True:
             raw = await websocket.receive_text()
@@ -188,13 +189,15 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
             if msg_type in {"start", "start_interview"}:
                 await refresh_online(session_id)
+                if current_turn_delivered:
+                    continue
                 state = await _ensure_started(websocket, session_id)
                 report_sent = (
                     state is not None
                     and await _send_report_if_ready(websocket, session_id, state)
                 )
-                if state is not None and not report_sent:
-                    await _send_current_turn(websocket, state)
+                if state is not None and not report_sent and not current_turn_delivered:
+                    current_turn_delivered = await _send_current_turn(websocket, state)
                 continue
 
             if msg_type in {"stop", "end_interview"}:
@@ -219,6 +222,26 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
                 await _send(
                     websocket,
                     ServerError(message=f"Expected 'answer' message, got '{msg_type}'"),
+                )
+                continue
+
+            if not current_turn_delivered:
+                state = mgr.get_last_state(session_id)
+                current_turn_delivered = await _send_current_turn(websocket, state)
+                if current_turn_delivered:
+                    await _send(
+                        websocket,
+                        ServerError(
+                            message=(
+                                "The current question was just sent. "
+                                "Please answer after it is displayed."
+                            )
+                        ),
+                    )
+                    continue
+                await _send(
+                    websocket,
+                    ServerError(message="No interview question is ready yet. Please wait."),
                 )
                 continue
 
@@ -264,7 +287,7 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
             if await _send_report_if_ready(websocket, session_id, state):
                 break
-            await _send_current_turn(websocket, state)
+            current_turn_delivered = await _send_current_turn(websocket, state)
 
     except WebSocketDisconnect:
         logger.info("WS disconnected: session=%s", session_id)

@@ -210,6 +210,26 @@ def test_websocket_interview_contract(monkeypatch):
         assert report["data"]["grade"] == "B"
 
 
+def test_websocket_start_handshake_does_not_duplicate_question(monkeypatch):
+    manager = FakeInterviewManager()
+    session = manager.create_session(
+        session_id="ws-start-handshake-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+    )
+    monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
+    client = TestClient(app)
+
+    with client.websocket_connect(f"/api/ws/interview/{session.session_id}") as ws:
+        assert ws.receive_json()["type"] == "status"
+        assert ws.receive_json()["stage"] == "questions_ready"
+        assert ws.receive_json()["type"] == "question"
+
+        ws.send_json({"type": "start_interview"})
+        ws.send_json({"type": "answer", "content": "I keep the graph state in SessionManager."})
+        assert ws.receive_json()["stage"] == "processing"
+        assert ws.receive_json()["type"] == "interview_end"
+
+
 def test_access_code_required_for_rest_when_enabled(monkeypatch):
     manager = FakeInterviewManager()
     monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
