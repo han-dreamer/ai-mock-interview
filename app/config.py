@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     report_cache_ttl_seconds: int = 604800
     ws_presence_ttl_seconds: int = 90
 
+    # LangGraph checkpointer. Keep "memory" for local development and tests;
+    # use "postgres" in Docker/production so graph state survives restarts.
+    checkpointer_backend: str = "memory"
+    postgres_url: str = "postgresql://ai_mock:ai_mock@localhost:5432/ai_mock_interview"
+
     @property
     def cors_origins(self) -> list[str]:
         return [

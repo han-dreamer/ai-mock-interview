@@ -13,6 +13,7 @@ build/
 chroma_data/
 memory_data/
 redis_data/
+postgres_data/
 
 .venv/
 venv/

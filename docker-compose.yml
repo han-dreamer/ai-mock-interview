@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_mock_interview}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_mock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_mock}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_mock} -d ${POSTGRES_DB:-ai_mock_interview}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -16,11 +31,14 @@ services:
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       PORT: 8000
       REDIS_ENABLED: "true"
       REDIS_URL: redis://redis:6379/0
+      CHECKPOINTER_BACKEND: postgres
+      POSTGRES_URL: postgresql://ai_mock:ai_mock@postgres:5432/ai_mock_interview
     volumes:
       - ./data:/app/data
       - ./chroma_data:/app/chroma_data
@@ -28,6 +46,8 @@ services:
       - ./uploads:/app/uploads
       - ./exports:/app/exports
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:

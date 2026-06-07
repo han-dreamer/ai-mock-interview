@@ -13,7 +13,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
 from app.cache.locks import session_answer_lock
@@ -39,6 +38,7 @@ from app.models.interview import AnswerAssessment, ChatMessage, InterviewSession
 from app.models.question import QuestionItem
 from app.models.report import InterviewReport, PracticeReport, ProfessionalReport
 from app.models.resume import ResumeParseResult
+from app.services.checkpoint import get_checkpointer
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class SessionManager:
 
     def __init__(self) -> None:
         self._sessions: dict[str, _SessionData] = {}
-        self._checkpointer = MemorySaver()
+        self._checkpointer = get_checkpointer()
         self._practice_graph = self._build_graph("practice")
         self._professional_graph = self._build_graph("professional")
 
@@ -654,3 +654,9 @@ def get_session_manager() -> SessionManager:
     if _manager is None:
         _manager = SessionManager()
     return _manager
+
+
+def reset_session_manager() -> None:
+    """Reset the singleton manager so a newly initialized checkpointer is used."""
+    global _manager
+    _manager = None
