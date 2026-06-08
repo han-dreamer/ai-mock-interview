@@ -1,4 +1,4 @@
-"""PostgreSQL connection lifecycle for business persistence."""
+"""PostgreSQL connection lifecycle for durable application persistence."""
 
 from __future__ import annotations
 
@@ -16,11 +16,23 @@ def session_store_enabled() -> bool:
     return settings.session_store_backend.strip().lower() == "postgres"
 
 
+def memory_store_enabled() -> bool:
+    return settings.memory_store_backend.strip().lower() == "postgres"
+
+
+def memory_vector_enabled() -> bool:
+    return settings.memory_vector_backend.strip().lower() == "pgvector"
+
+
+def postgres_enabled() -> bool:
+    return session_store_enabled() or memory_store_enabled() or memory_vector_enabled()
+
+
 async def init_database() -> Any | None:
-    """Initialize PostgreSQL pool and business tables when enabled."""
+    """Initialize PostgreSQL pool and durable application tables when enabled."""
     global _pool
-    if not session_store_enabled():
-        logger.info("Business session store initialized: memory")
+    if not postgres_enabled():
+        logger.info("Application database initialized: memory/sqlite/chroma")
         return None
     if _pool is not None:
         return _pool
@@ -42,7 +54,7 @@ async def init_database() -> Any | None:
     )
     await _pool.open()
     await setup_database()
-    logger.info("Business session store initialized: postgres")
+    logger.info("Application database initialized: postgres")
     return _pool
 
 
@@ -51,13 +63,16 @@ def get_pool() -> Any | None:
 
 
 async def setup_database() -> None:
-    """Create business persistence tables.
+    """Create durable application tables.
 
     LangGraph checkpoint tables are managed separately by AsyncPostgresSaver.setup().
     """
     if _pool is None:
         return
     async with _pool.connection() as conn:
+        if memory_vector_enabled():
+            await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
         await conn.execute(
             """
             CREATE TABLE IF NOT EXISTS interview_sessions (
@@ -108,6 +123,92 @@ async def setup_database() -> None:
             ON interview_sessions (status)
             """
         )
+
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memory_items (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                memory_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                structured JSONB NOT NULL DEFAULT '{}'::jsonb,
+                tags TEXT[] NOT NULL DEFAULT '{}'::text[],
+                source TEXT NOT NULL,
+                source_id TEXT,
+                importance DOUBLE PRECISION NOT NULL,
+                confidence DOUBLE PRECISION NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL
+            )
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_memory_items_user_type_updated
+            ON memory_items (user_id, memory_type, updated_at DESC)
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_memory_items_user_tags
+            ON memory_items USING GIN (tags)
+            """
+        )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS skill_memories (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                skill_name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                attempts INTEGER NOT NULL,
+                avg_score DOUBLE PRECISION NOT NULL,
+                recent_score DOUBLE PRECISION NOT NULL,
+                mastery_level TEXT NOT NULL,
+                strengths JSONB NOT NULL DEFAULT '[]'::jsonb,
+                weak_points JSONB NOT NULL DEFAULT '[]'::jsonb,
+                evidence_memory_ids TEXT[] NOT NULL DEFAULT '{}'::text[],
+                next_practice_priority DOUBLE PRECISION NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL,
+                UNIQUE (user_id, skill_name)
+            )
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_skill_memories_user_priority
+            ON skill_memories (user_id, next_practice_priority DESC, updated_at DESC)
+            """
+        )
+
+        if memory_vector_enabled():
+            await conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory_embeddings (
+                    memory_id TEXT PRIMARY KEY REFERENCES memory_items(id) ON DELETE CASCADE,
+                    user_id TEXT NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    embedding vector NOT NULL,
+                    embedding_model TEXT NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+            await conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_memory_embeddings_user_type
+                ON memory_embeddings (user_id, memory_type)
+                """
+            )
+            await conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_memory_embeddings_user_updated
+                ON memory_embeddings (user_id, updated_at DESC)
+                """
+            )
 
 
 async def close_database() -> None:

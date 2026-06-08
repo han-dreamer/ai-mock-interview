@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ai_mock_interview}
       POSTGRES_USER: ${POSTGRES_USER:-ai_mock}
@@ -40,6 +40,8 @@ services:
       CHECKPOINTER_BACKEND: postgres
       POSTGRES_URL: postgresql://ai_mock:ai_mock@postgres:5432/ai_mock_interview
       SESSION_STORE_BACKEND: postgres
+      MEMORY_STORE_BACKEND: postgres
+      MEMORY_VECTOR_BACKEND: pgvector
     volumes:
       - ./data:/app/data
       - ./chroma_data:/app/chroma_data

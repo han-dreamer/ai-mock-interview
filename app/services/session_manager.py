@@ -500,7 +500,7 @@ class SessionManager:
                 data.graph_started = True
                 if result.get("resume_profile"):
                     try:
-                        saved = memory.save_resume_profile(
+                        saved = await memory.asave_resume_profile(
                             data.user_id,
                             session_id,
                             result.get("resume_profile"),
@@ -701,7 +701,7 @@ class SessionManager:
                     assessment = AnswerAssessment.model_validate(raw_assessment)
 
                 question = self._candidate_question(state, assessment.question_id)
-                item = memory.save_assessment_episode(
+                item = await memory.asave_assessment_episode(
                     user_id=data.user_id,
                     session_id=session_id,
                     assessment=assessment,
@@ -729,7 +729,8 @@ class SessionManager:
             or state.get("final_report")
         )
         try:
-            item = get_memory_service().save_session_reflection(
+            memory = get_memory_service()
+            item = await memory.asave_session_reflection(
                 user_id=data.user_id,
                 session_id=session_id,
                 mode=data.mode,
@@ -737,7 +738,7 @@ class SessionManager:
                 assessments=state.get("assessments", []) or [],
             )
             if item:
-                await get_memory_service().aindex_memory_item(item)
+                await memory.aindex_memory_item(item)
             data.final_memory_saved = True
         except Exception:
             logger.exception("Failed to persist final memory: session=%s", session_id)

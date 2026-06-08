@@ -4,6 +4,7 @@ This project uses two persistence layers for interview runtime recovery:
 
 - LangGraph checkpoints: stores graph execution state for each `thread_id`.
 - Business session metadata: stores lightweight interview metadata needed by the API layer.
+- Long-term memory: stores cross-session profile, interview episodes, skill memory, and semantic embeddings.
 
 Local development and tests still default to in-memory storage. Docker/production enables PostgreSQL for both layers.
 
@@ -12,6 +13,8 @@ Local development and tests still default to in-memory storage. Docker/productio
 ```env
 CHECKPOINTER_BACKEND=postgres
 SESSION_STORE_BACKEND=postgres
+MEMORY_STORE_BACKEND=postgres
+MEMORY_VECTOR_BACKEND=pgvector
 POSTGRES_URL=postgresql://ai_mock:ai_mock@postgres:5432/ai_mock_interview
 POSTGRES_POOL_MIN_SIZE=1
 POSTGRES_POOL_MAX_SIZE=5
@@ -21,8 +24,10 @@ Supported values:
 
 - `CHECKPOINTER_BACKEND=memory|postgres`
 - `SESSION_STORE_BACKEND=memory|postgres`
+- `MEMORY_STORE_BACKEND=sqlite|postgres`
+- `MEMORY_VECTOR_BACKEND=chroma|pgvector`
 
-`docker-compose.yml` includes a PostgreSQL service and sets both backends to `postgres` for the API container.
+`docker-compose.yml` uses the `pgvector/pgvector:pg16` image and sets PostgreSQL-backed runtime, session, and memory persistence for the API container.
 
 ## Startup Lifecycle
 
@@ -32,7 +37,7 @@ FastAPI initializes persistence during application startup:
 2. `CHECKPOINTER_BACKEND=memory` creates a LangGraph `MemorySaver`.
 3. `CHECKPOINTER_BACKEND=postgres` creates an `AsyncPostgresSaver` and runs `setup()`.
 4. `app.main.lifespan` calls `init_database()`.
-5. `SESSION_STORE_BACKEND=postgres` opens a psycopg async connection pool and creates business tables.
+5. PostgreSQL-backed stores open a shared psycopg async connection pool and create application tables.
 6. `SessionManager` is reset so newly compiled LangGraph workflows use the initialized checkpointer.
 7. On shutdown, PostgreSQL checkpointer connections, business database pool, and Redis are closed.
 
@@ -51,6 +56,14 @@ The business session store persists the `interview_sessions` table:
 - `error_message`, `created_at`, `updated_at`, `completed_at`
 
 This lets the API restore `SessionManager` metadata after a process restart and pair it with LangGraph's persisted checkpoint state.
+
+The long-term memory store persists:
+
+- `memory_items`: profile, resume project memories, interview episodes, final reflections, preferences, and strategies.
+- `skill_memories`: per-user skill mastery, weak points, attempts, and next practice priority.
+- `memory_embeddings`: pgvector semantic index for long-term memory recall.
+
+Redis remains an optional runtime coordination layer for distributed locks, rate limits, WebSocket presence, and hot session/report caches. It is not the durable source of truth.
 
 ## Runtime Flow
 
@@ -75,6 +88,8 @@ For plain local Python runs without Docker:
 ```env
 CHECKPOINTER_BACKEND=memory
 SESSION_STORE_BACKEND=memory
+MEMORY_STORE_BACKEND=sqlite
+MEMORY_VECTOR_BACKEND=chroma
 ```
 
 For Docker Compose:
@@ -89,4 +104,4 @@ The API waits for PostgreSQL and Redis health checks before starting.
 
 This phase provides the persistence foundation for restart recovery.
 
-It does not yet implement full user accounts, historical interview list pages, report management UI, or separate normalized report/message tables. Those can be built in the next phase on top of the `user_id` and `interview_sessions` foundation.
+It does not yet implement full user accounts, historical interview list pages, report management UI, or separate normalized report/message tables. Those can be built in the next phase on top of the `user_id`, `interview_sessions`, and PostgreSQL long-term memory foundation.

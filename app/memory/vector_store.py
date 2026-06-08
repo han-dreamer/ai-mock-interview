@@ -113,5 +113,13 @@ _memory_vector_store: MemoryVectorStore | None = None
 def get_memory_vector_store() -> MemoryVectorStore:
     global _memory_vector_store
     if _memory_vector_store is None:
-        _memory_vector_store = MemoryVectorStore()
+        backend = settings.memory_vector_backend.strip().lower()
+        if backend in {"", "chroma"}:
+            _memory_vector_store = MemoryVectorStore()
+        elif backend == "pgvector":
+            from app.memory.pgvector_store import PgVectorMemoryVectorStore
+
+            _memory_vector_store = PgVectorMemoryVectorStore()  # type: ignore[assignment]
+        else:
+            raise ValueError(f"Unsupported MEMORY_VECTOR_BACKEND: {settings.memory_vector_backend}")
     return _memory_vector_store

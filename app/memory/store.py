@@ -294,3 +294,14 @@ class MemoryStore:
             created_at=_parse_dt(row["created_at"]) or datetime.now(timezone.utc),
             updated_at=_parse_dt(row["updated_at"]) or datetime.now(timezone.utc),
         )
+
+
+def get_memory_store():
+    backend = settings.memory_store_backend.strip().lower()
+    if backend in {"", "sqlite"}:
+        return MemoryStore()
+    if backend == "postgres":
+        from app.memory.postgres_store import PostgresMemoryStore
+
+        return PostgresMemoryStore()
+    raise ValueError(f"Unsupported MEMORY_STORE_BACKEND: {settings.memory_store_backend}")

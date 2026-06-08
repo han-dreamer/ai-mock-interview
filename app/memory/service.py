@@ -13,7 +13,7 @@ from app.memory.models import (
     SkillMemory,
     utc_now,
 )
-from app.memory.store import MemoryStore
+from app.memory.store import MemoryStore, get_memory_store
 from app.memory.vector_store import MemoryVectorStore, get_memory_vector_store
 from app.models.interview import AnswerAssessment
 from app.models.question import QuestionItem
@@ -62,7 +62,7 @@ class MemoryService:
         store: MemoryStore | None = None,
         vector_store: MemoryVectorStore | None = None,
     ) -> None:
-        self.store = store or MemoryStore()
+        self.store = store or get_memory_store()
         self.vector_store = vector_store
 
     def build_context(self, user_id: str, tags: list[str] | None = None) -> MemoryContext:
@@ -114,7 +114,7 @@ class MemoryService:
         tags: list[str] | None = None,
     ) -> MemoryContext:
         """Recall structured memory plus semantic memories relevant to the query."""
-        context = self.build_context(user_id=user_id, tags=tags)
+        context = await self.abuild_structured_context(user_id=user_id, tags=tags)
         if not semantic_query.strip():
             return context
 
@@ -149,7 +149,7 @@ class MemoryService:
         }
         semantic_memories: list[MemoryItem] = []
         for result in results:
-            item = self.store.get_memory_item(result["id"])
+            item = await self._aget_memory_item(result["id"])
             if not item or item.id in seen_ids:
                 continue
             semantic_memories.append(
@@ -166,6 +166,59 @@ class MemoryService:
 
         context.semantic_memories = semantic_memories
         return context
+
+    async def abuild_structured_context(
+        self,
+        user_id: str,
+        tags: list[str] | None = None,
+    ) -> MemoryContext:
+        if not hasattr(self.store, "alist_memory_items"):
+            return self.build_context(user_id=user_id, tags=tags)
+
+        profile_items = await self.store.alist_memory_items(
+            user_id,
+            memory_types=[MemoryType.PROFILE.value, MemoryType.PREFERENCE.value],
+            limit=4,
+        )
+        resume_items = await self.store.alist_memory_items(
+            user_id,
+            memory_types=[MemoryType.RESUME_PROJECT.value],
+            limit=5,
+        )
+        recent_reflections = await self.store.alist_memory_items(
+            user_id,
+            memory_types=[MemoryType.SESSION_REFLECTION.value],
+            limit=3,
+        )
+        weak_skills = [
+            memory
+            for memory in await self.store.alist_skill_memories(user_id, limit=6)
+            if (
+                memory.mastery_level == MasteryLevel.WEAK.value
+                or memory.next_practice_priority >= 0.45
+            )
+        ]
+        relevant_episodes = []
+        if tags:
+            relevant_episodes = await self.store.alist_memory_items(
+                user_id,
+                memory_types=[MemoryType.INTERVIEW_EPISODE.value],
+                tags=tags,
+                limit=5,
+            )
+        return MemoryContext(
+            user_id=user_id,
+            profile_items=profile_items,
+            resume_items=resume_items,
+            recent_reflections=recent_reflections,
+            weak_skills=weak_skills,
+            relevant_episodes=relevant_episodes,
+        )
+
+    async def _aget_memory_item(self, memory_id: str) -> MemoryItem | None:
+        if hasattr(self.store, "aget_memory_item"):
+            return await self.store.aget_memory_item(memory_id)
+        return self.store.get_memory_item(memory_id)
 
     def format_context(self, context: MemoryContext) -> str:
         if context.is_empty():
@@ -222,29 +275,55 @@ class MemoryService:
         session_id: str,
         profile: ResumeProfile | None,
     ) -> list[MemoryItem]:
+        saved = [
+            self.store.upsert_memory_item(item)
+            for item in self._build_resume_profile_items(user_id, session_id, profile)
+        ]
+        logger.info("Saved %d resume/profile memories for user=%s", len(saved), user_id)
+        return saved
+
+    async def asave_resume_profile(
+        self,
+        user_id: str,
+        session_id: str,
+        profile: ResumeProfile | None,
+    ) -> list[MemoryItem]:
+        if not hasattr(self.store, "aupsert_memory_item"):
+            return self.save_resume_profile(user_id, session_id, profile)
+
+        async_saved: list[MemoryItem] = []
+        for item in self._build_resume_profile_items(user_id, session_id, profile):
+            async_saved.append(await self.store.aupsert_memory_item(item))
+        logger.info("Saved %d resume/profile memories for user=%s", len(async_saved), user_id)
+        return async_saved
+
+    def _build_resume_profile_items(
+        self,
+        user_id: str,
+        session_id: str,
+        profile: ResumeProfile | None,
+    ) -> list[MemoryItem]:
         if not profile:
             return []
 
-        saved: list[MemoryItem] = []
+        items: list[MemoryItem] = []
         if profile.skills or profile.summary:
             content = (
                 f"Candidate profile summary: {profile.summary or 'No summary'}; "
                 f"skills: {', '.join(profile.skills[:12]) or 'not specified'}."
             )
-            saved.append(
-                self.store.upsert_memory_item(
-                    MemoryItem(
-                        id=_stable_id(user_id, "profile", session_id),
-                        user_id=user_id,
-                        memory_type=MemoryType.PROFILE,
-                        content=content,
-                        structured=profile.model_dump(mode="json"),
-                        tags=["profile", "resume", *profile.skills[:12]],
-                        source="resume_profile",
-                        source_id=session_id,
-                        importance=0.7,
-                        confidence=0.8,
-                    )
+            items.append(
+                MemoryItem(
+                    id=_stable_id(user_id, "profile", session_id),
+                    user_id=user_id,
+                    memory_type=MemoryType.PROFILE,
+                    content=content,
+                    structured=profile.model_dump(mode="json"),
+                    tags=["profile", "resume", *profile.skills[:12]],
+                    source="resume_profile",
+                    source_id=session_id,
+                    importance=0.7,
+                    confidence=0.8,
                 )
             )
 
@@ -255,29 +334,26 @@ class MemoryService:
                 f"Resume project [{project.name}] uses {tech or 'unspecified tech'}; "
                 f"description: {project.description}; deep-dive points: {dives or 'not extracted'}."
             )
-            saved.append(
-                self.store.upsert_memory_item(
-                    MemoryItem(
-                        id=_stable_id(
-                            user_id,
-                            "resume_project",
-                            project.name,
-                            project.description[:80],
-                        ),
-                        user_id=user_id,
-                        memory_type=MemoryType.RESUME_PROJECT,
-                        content=content,
-                        structured=project.model_dump(mode="json"),
-                        tags=["resume", "project", project.name, *project.tech_stack],
-                        source="resume_profile",
-                        source_id=session_id,
-                        importance=0.85,
-                        confidence=0.8,
-                    )
+            items.append(
+                MemoryItem(
+                    id=_stable_id(
+                        user_id,
+                        "resume_project",
+                        project.name,
+                        project.description[:80],
+                    ),
+                    user_id=user_id,
+                    memory_type=MemoryType.RESUME_PROJECT,
+                    content=content,
+                    structured=project.model_dump(mode="json"),
+                    tags=["resume", "project", project.name, *project.tech_stack],
+                    source="resume_profile",
+                    source_id=session_id,
+                    importance=0.85,
+                    confidence=0.8,
                 )
             )
-        logger.info("Saved %d resume/profile memories for user=%s", len(saved), user_id)
-        return saved
+        return items
 
     async def aindex_memory_item(self, item: MemoryItem) -> None:
         """Index one MemoryItem for semantic recall. Failures should not block interviews."""
@@ -292,6 +368,51 @@ class MemoryService:
             await self.aindex_memory_item(item)
 
     def save_assessment_episode(
+        self,
+        user_id: str,
+        session_id: str,
+        assessment: AnswerAssessment,
+        question: QuestionItem | None,
+        answer: str,
+        mode: str,
+    ) -> MemoryItem:
+        item = self._build_assessment_episode_item(
+            user_id=user_id,
+            session_id=session_id,
+            assessment=assessment,
+            question=question,
+            answer=answer,
+            mode=mode,
+        )
+        item = self.store.upsert_memory_item(item)
+        self.update_skill_memories(user_id, assessment, question, item.id)
+        return item
+
+    async def asave_assessment_episode(
+        self,
+        user_id: str,
+        session_id: str,
+        assessment: AnswerAssessment,
+        question: QuestionItem | None,
+        answer: str,
+        mode: str,
+    ) -> MemoryItem:
+        if not hasattr(self.store, "aupsert_memory_item"):
+            return self.save_assessment_episode(user_id, session_id, assessment, question, answer, mode)
+
+        item = self._build_assessment_episode_item(
+            user_id=user_id,
+            session_id=session_id,
+            assessment=assessment,
+            question=question,
+            answer=answer,
+            mode=mode,
+        )
+        item = await self.store.aupsert_memory_item(item)
+        await self.aupdate_skill_memories(user_id, assessment, question, item.id)
+        return item
+
+    def _build_assessment_episode_item(
         self,
         user_id: str,
         session_id: str,
@@ -338,8 +459,6 @@ class MemoryService:
             importance=0.75 if assessment.score < 7 else 0.55,
             confidence=0.85,
         )
-        item = self.store.upsert_memory_item(item)
-        self.update_skill_memories(user_id, assessment, question, item.id)
         return item
 
     def update_skill_memories(
@@ -390,7 +509,84 @@ class MemoryService:
             updated.append(self.store.upsert_skill_memory(memory))
         return updated
 
+    async def aupdate_skill_memories(
+        self,
+        user_id: str,
+        assessment: AnswerAssessment,
+        question: QuestionItem | None,
+        evidence_memory_id: str,
+    ) -> list[SkillMemory]:
+        if not hasattr(self.store, "aget_skill_memory") or not hasattr(
+            self.store, "aupsert_skill_memory"
+        ):
+            return self.update_skill_memories(user_id, assessment, question, evidence_memory_id)
+        if not question:
+            return []
+
+        updated: list[SkillMemory] = []
+        for skill_name in question.skill_tags:
+            existing = await self.store.aget_skill_memory(user_id, skill_name)
+            if existing is None:
+                existing = SkillMemory(
+                    id=_stable_id(user_id, "skill", skill_name),
+                    user_id=user_id,
+                    skill_name=skill_name,
+                    category="unknown",
+                    created_at=utc_now(),
+                )
+
+            attempts = existing.attempts + 1
+            avg_score = ((existing.avg_score * existing.attempts) + assessment.score) / attempts
+            recent_score = float(assessment.score)
+            memory = existing.model_copy(
+                update={
+                    "attempts": attempts,
+                    "avg_score": round(avg_score, 2),
+                    "recent_score": recent_score,
+                    "mastery_level": _mastery(recent_score),
+                    "strengths": _dedupe_append(existing.strengths, assessment.covered_points),
+                    "weak_points": _dedupe_append(existing.weak_points, assessment.missed_points),
+                    "evidence_memory_ids": _dedupe_append(
+                        existing.evidence_memory_ids,
+                        [evidence_memory_id],
+                        limit=20,
+                    ),
+                    "next_practice_priority": round(
+                        _priority(avg_score, recent_score, attempts),
+                        3,
+                    ),
+                    "updated_at": utc_now(),
+                }
+            )
+            updated.append(await self.store.aupsert_skill_memory(memory))
+        return updated
+
     def save_session_reflection(
+        self,
+        user_id: str,
+        session_id: str,
+        mode: str,
+        report: PracticeReport | InterviewReport | ProfessionalReport | None,
+        assessments: list[AnswerAssessment],
+    ) -> MemoryItem | None:
+        item = self._build_session_reflection_item(user_id, session_id, mode, report, assessments)
+        return self.store.upsert_memory_item(item) if item else None
+
+    async def asave_session_reflection(
+        self,
+        user_id: str,
+        session_id: str,
+        mode: str,
+        report: PracticeReport | InterviewReport | ProfessionalReport | None,
+        assessments: list[AnswerAssessment],
+    ) -> MemoryItem | None:
+        if not hasattr(self.store, "aupsert_memory_item"):
+            return self.save_session_reflection(user_id, session_id, mode, report, assessments)
+
+        item = self._build_session_reflection_item(user_id, session_id, mode, report, assessments)
+        return await self.store.aupsert_memory_item(item) if item else None
+
+    def _build_session_reflection_item(
         self,
         user_id: str,
         session_id: str,
@@ -434,7 +630,7 @@ class MemoryService:
             importance=0.8,
             confidence=0.8,
         )
-        return self.store.upsert_memory_item(item)
+        return item
 
 
 _memory_service: MemoryService | None = None

@@ -26,9 +26,11 @@ class Settings(BaseSettings):
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
 
-    # ChromaDB
+    # RAG and memory persistence
     chroma_persist_dir: str = "./chroma_data"
     memory_db_path: str = "./memory_data/memory.db"
+    memory_store_backend: str = "sqlite"
+    memory_vector_backend: str = "chroma"
     upload_dir: str = "./uploads"
     export_dir: str = "./exports"
 
