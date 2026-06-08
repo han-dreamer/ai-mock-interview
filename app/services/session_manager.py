@@ -39,6 +39,7 @@ from app.models.question import QuestionItem
 from app.models.report import InterviewReport, PracticeReport, ProfessionalReport
 from app.models.resume import ResumeParseResult
 from app.services.checkpoint import get_checkpointer
+from app.services.session_repository import load_session_record, save_session_record
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,31 @@ class SessionManager:
         data = self._sessions.get(session_id)
         return data.session if data else None
 
+    async def ensure_session_loaded(self, session_id: str) -> InterviewSession | None:
+        """Load session metadata from persistent storage when memory is empty."""
+        data = self._sessions.get(session_id)
+        if data:
+            return data.session
+
+        persisted = await load_session_record(session_id)
+        if not persisted:
+            return None
+
+        self._sessions[session_id] = _SessionData(
+            session=persisted.session,
+            mode=persisted.mode,  # type: ignore[arg-type]
+            resume_text=persisted.resume_text,
+            resume_parse_result=persisted.resume_parse_result,
+            user_id=persisted.session.user_id,
+            graph_started=persisted.graph_started,
+            last_state=persisted.last_state or {},
+            persisted_assessment_count=persisted.persisted_assessment_count,
+            final_memory_saved=persisted.final_memory_saved,
+            error_message=persisted.error_message,
+        )
+        logger.info("Restored session metadata from Postgres: %s", session_id)
+        return persisted.session
+
     def get_session_mode(self, session_id: str) -> str:
         data = self._sessions.get(session_id)
         return data.mode if data else "practice"
@@ -198,6 +224,7 @@ class SessionManager:
         data = self._sessions.get(session_id)
         if data:
             data.session.status = status
+            self._schedule_persist(session_id)
 
     def set_resume(
         self,
@@ -213,6 +240,7 @@ class SessionManager:
             raise RuntimeError("Resume cannot be changed after the interview has started")
         data.resume_text = resume_text
         data.resume_parse_result = resume_parse_result
+        self._schedule_persist(session_id)
 
     def get_resume_parse_result(self, session_id: str) -> ResumeParseResult | None:
         data = self._sessions.get(session_id)
@@ -227,18 +255,21 @@ class SessionManager:
         if data:
             data.report = report
             data.session.status = "completed"
+            self._schedule_persist(session_id)
 
     def save_professional_report(self, session_id: str, report: ProfessionalReport) -> None:
         data = self._sessions.get(session_id)
         if data:
             data.professional_report = report
             data.session.status = "completed"
+            self._schedule_persist(session_id)
 
     def save_practice_report(self, session_id: str, report: PracticeReport) -> None:
         data = self._sessions.get(session_id)
         if data:
             data.practice_report = report
             data.session.status = "completed"
+            self._schedule_persist(session_id)
 
     def get_report(self, session_id: str) -> InterviewReport | None:
         data = self._sessions.get(session_id)
@@ -255,13 +286,50 @@ class SessionManager:
     def get_report_for_session(
         self,
         session_id: str,
-    ) -> PracticeReport | ProfessionalReport | InterviewReport | None:
+    ) -> PracticeReport | ProfessionalReport | InterviewReport | dict | None:
         data = self._sessions.get(session_id)
         if not data:
             return None
         if data.mode == "practice":
-            return data.practice_report or data.report
-        return data.professional_report or data.report
+            return (
+                data.practice_report
+                or self._report_from_last_state(session_id, "practice_report", PracticeReport)
+                or data.report
+                or self._report_from_last_state(session_id, "final_report", InterviewReport)
+            )
+        return (
+            data.professional_report
+            or self._report_from_last_state(session_id, "professional_report", ProfessionalReport)
+            or data.report
+            or self._report_from_last_state(session_id, "final_report", InterviewReport)
+        )
+
+    def _report_from_last_state(self, session_id: str, key: str, model_cls: type) -> Any:
+        data = self._sessions.get(session_id)
+        if not data:
+            return None
+        raw_report = (data.last_state or {}).get(key)
+        if not raw_report:
+            return None
+        if isinstance(raw_report, model_cls):
+            return raw_report
+        try:
+            restored = model_cls.model_validate(raw_report)
+        except Exception:
+            logger.debug(
+                "Returning raw report from last_state: session=%s key=%s",
+                session_id,
+                key,
+            )
+            return raw_report
+
+        if key == "practice_report":
+            data.practice_report = restored
+        elif key == "professional_report":
+            data.professional_report = restored
+        elif key == "final_report":
+            data.report = restored
+        return restored
 
     def get_last_state(self, session_id: str) -> dict[str, Any]:
         data = self._sessions.get(session_id)
@@ -328,6 +396,7 @@ class SessionManager:
         data = self._sessions.get(session_id)
         if not data:
             return
+        await self._persist_session(session_id)
         await save_session_snapshot(
             data.session,
             dict(state),
@@ -347,6 +416,35 @@ class SessionManager:
 
     def _config(self, session_id: str) -> dict:
         return {"configurable": {"thread_id": session_id}}
+
+    async def _persist_session(self, session_id: str) -> None:
+        data = self._sessions.get(session_id)
+        if not data:
+            return
+        try:
+            await save_session_record(
+                session=data.session,
+                mode=data.mode,
+                resume_text=data.resume_text,
+                resume_parse_result=data.resume_parse_result,
+                graph_started=data.graph_started,
+                last_state=data.last_state,
+                persisted_assessment_count=data.persisted_assessment_count,
+                final_memory_saved=data.final_memory_saved,
+                error_message=data.error_message,
+            )
+        except Exception:
+            logger.exception("Failed to persist session metadata: %s", session_id)
+
+    async def persist_session(self, session_id: str) -> None:
+        """Persist lightweight session metadata through the configured store."""
+        await self._persist_session(session_id)
+
+    def _schedule_persist(self, session_id: str) -> None:
+        try:
+            asyncio.get_running_loop().create_task(self._persist_session(session_id))
+        except RuntimeError:
+            logger.debug("No running loop; skipped async persist scheduling for %s", session_id)
 
     async def start_interview_graph(self, session_id: str) -> dict:
         """Kick off the graph.

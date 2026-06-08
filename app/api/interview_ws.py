@@ -154,7 +154,7 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
         return
 
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         await websocket.close(code=4004, reason="Session not found")
         return

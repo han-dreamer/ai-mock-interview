@@ -45,6 +45,12 @@ class FakeInterviewManager:
     def get_session(self, session_id):
         return self.sessions.get(session_id)
 
+    async def ensure_session_loaded(self, session_id):
+        return self.get_session(session_id)
+
+    async def persist_session(self, _session_id):
+        return None
+
     def get_session_mode(self, _session_id):
         return getattr(self, "mode", "practice")
 

@@ -39,6 +39,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CHECKPOINTER_BACKEND: postgres
       POSTGRES_URL: postgresql://ai_mock:ai_mock@postgres:5432/ai_mock_interview
+      SESSION_STORE_BACKEND: postgres
     volumes:
       - ./data:/app/data
       - ./chroma_data:/app/chroma_data

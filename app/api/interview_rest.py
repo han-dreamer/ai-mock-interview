@@ -188,6 +188,7 @@ async def start_interview(req: StartInterviewRequest, request: Request):
         mode=mode,
         user_id=req.user_id or "local-user",
     )
+    await mgr.persist_session(session_id)
     await save_session_meta(session, mode)
     return StartInterviewResponse(
         session_id=session_id,
@@ -233,6 +234,7 @@ async def start_interview_with_resume(
         resume_parse_result=parse_result,
         user_id=user_id or "local-user",
     )
+    await mgr.persist_session(session_id)
     await save_session_meta(session, normalized_mode)
     return {
         "session_id": session_id,
@@ -247,7 +249,7 @@ async def start_interview_with_resume(
 async def get_session(session_id: str):
     """Get the current state of an interview session."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return session
@@ -261,7 +263,7 @@ async def upload_resume(
 ):
     """Upload and parse a resume for an existing session before interview start."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     await _enforce_rate_limit(
@@ -290,7 +292,7 @@ async def upload_resume(
 async def start_session_graph(session_id: str):
     """Start the LangGraph interview and return the first interviewer turn."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     try:
@@ -304,7 +306,7 @@ async def start_session_graph(session_id: str):
 async def submit_session_answer(session_id: str, req: SubmitAnswerRequest, request: Request):
     """Submit one answer through REST and return the next turn or final report."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     await _enforce_rate_limit(
@@ -329,7 +331,7 @@ async def submit_session_answer(session_id: str, req: SubmitAnswerRequest, reque
 async def stop_session(session_id: str):
     """Stop a running interview and generate an early report when possible."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     try:
@@ -343,7 +345,7 @@ async def stop_session(session_id: str):
 async def get_session_state(session_id: str):
     """Return lightweight session metadata plus the latest LangGraph state snapshot."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     state = mgr.get_last_state(session_id)
@@ -360,7 +362,7 @@ async def get_session_state(session_id: str):
 async def get_report(session_id: str):
     """Get the final interview report for a completed session."""
     mgr = get_session_manager()
-    session = mgr.get_session(session_id)
+    session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if session.status != "completed":

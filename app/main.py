@@ -12,6 +12,7 @@ from app.cache.redis_client import close_redis
 from app.config import settings
 from app.security import access_control_enabled, is_valid_access_token, token_from_request
 from app.services.checkpoint import close_checkpointer, init_checkpointer
+from app.services.database import close_database, init_database
 from app.services.session_manager import reset_session_manager
 
 logging.basicConfig(
@@ -23,11 +24,13 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await init_checkpointer()
+    await init_database()
     reset_session_manager()
     try:
         yield
     finally:
         await close_checkpointer()
+        await close_database()
         await close_redis()
 
 

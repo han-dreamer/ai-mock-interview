@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     checkpointer_backend: str = "memory"
     postgres_url: str = "postgresql://ai_mock:ai_mock@localhost:5432/ai_mock_interview"
 
+    # Business session metadata persistence. The graph checkpoint alone stores
+    # LangGraph state, while this store preserves session metadata such as JD,
+    # mode, user_id, resume parse result, and graph_started.
+    session_store_backend: str = "memory"
+    postgres_pool_min_size: int = 1
+    postgres_pool_max_size: int = 5
+
     @property
     def cors_origins(self) -> list[str]:
         return [
