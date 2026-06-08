@@ -32,21 +32,18 @@ Create `web/.env.local` when the backend is not running at the default URL:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
-VITE_ACCESS_CODE=
 ```
 
 For production:
 
 ```env
 VITE_API_BASE_URL=https://api.your-domain.com/api
-VITE_ACCESS_CODE=
 ```
 
 For the repository's Docker Compose deployment, use a same-origin API path:
 
 ```env
 VITE_API_BASE_URL=/api
-VITE_ACCESS_CODE=
 ```
 
 The included Nginx config serves the built React app and proxies `/api`,
@@ -55,10 +52,9 @@ The included Nginx config serves the built React app and proxies `/api`,
 The client derives the WebSocket URL from `VITE_API_BASE_URL`, so HTTPS
 automatically becomes WSS.
 
-If the backend sets `APP_ACCESS_TOKEN`, users must enter the same value in the
-trial access code field before starting an interview. `VITE_ACCESS_CODE` can
-pre-fill that field for private demos, but it is not a secret once shipped to a
-public browser.
+Users register or log in through the UI. The client stores the JWT locally, sends
+it as `Authorization: Bearer <token>` for REST requests, and adds the same token
+to WebSocket connections.
 
 ## Build
 

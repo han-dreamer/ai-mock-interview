@@ -1,5 +1,20 @@
 export type InterviewMode = "practice" | "professional";
 
+export interface UserPublic {
+  id: string;
+  username: string;
+  display_name: string;
+  role: string;
+  created_at?: string | null;
+  last_login_at?: string | null;
+}
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type: "bearer";
+  user: UserPublic;
+}
+
 export interface StartInterviewResponse {
   session_id: string;
   message: string;

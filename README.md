@@ -35,7 +35,7 @@
 ```mermaid
 flowchart TD
     Web["React / Vite Web Client"] --> API["FastAPI REST + WebSocket API"]
-    API --> Security["Access Code / CORS / Rate Limit"]
+    API --> Security["JWT Auth / CORS / Rate Limit"]
     Security --> Session["SessionManager"]
     Session --> Graph["LangGraph Interview Workflow"]
 
@@ -98,7 +98,7 @@ START
 - 通过 WebSocket 实时接收问题、追问、状态和最终报告。
 - 支持 REST API 调试和非实时客户端调用。
 - 支持提前结束面试并基于已有回答生成阶段性报告。
-- 支持访问码保护，适合公开试用链接。
+- 支持注册/登录、JWT 鉴权、面试会话账号隔离。
 - 支持 Redis 限流，降低公开 demo 被刷接口和 LLM quota 的风险。
 - 支持报告页面展示、技能评分、轮次评分、招聘建议和 Markdown 导出。
 
@@ -195,12 +195,12 @@ EMBEDDING_API_KEY=your-embedding-api-key
 EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDING_MODEL=text-embedding-v3
 
-APP_ACCESS_TOKEN=
+AUTH_SECRET_KEY=change-me-to-a-long-random-secret
+AUTH_TOKEN_EXPIRE_MINUTES=10080
 REDIS_ENABLED=false
 REDIS_URL=redis://localhost:6379/0
 
 VITE_API_BASE_URL=/api
-VITE_ACCESS_CODE=
 ```
 
 普通本地 Python 运行时 Redis 默认关闭。Docker Compose 会为 API 容器自动设置 `REDIS_ENABLED=true` 和 `REDIS_URL=redis://redis:6379/0`。

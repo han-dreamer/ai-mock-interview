@@ -5,6 +5,19 @@ from app.api import interview_rest
 from app.cache import locks, rate_limiter
 from app.cache.rate_limiter import RateLimitResult
 from app.main import app
+from app.models.user import UserInDB
+from app.security import get_current_user
+
+
+def _fake_user() -> UserInDB:
+    return UserInDB(
+        id="user-1",
+        username="user-1@example.test",
+        password_hash="hash",
+        display_name="Test User",
+        role="user",
+        is_active=True,
+    )
 
 
 class FakeRedis:
@@ -87,12 +100,20 @@ def test_rest_start_rate_limit_returns_429(monkeypatch):
         )
 
     monkeypatch.setattr(interview_rest, "check_rate_limit", blocked)
+
+    async def override_current_user():
+        return _fake_user()
+
+    app.dependency_overrides[get_current_user] = override_current_user
     client = TestClient(app)
 
-    response = client.post(
-        "/api/interview/start",
-        json={"jd_text": "Python FastAPI LangGraph AI application developer position"},
-    )
+    try:
+        response = client.post(
+            "/api/interview/start",
+            json={"jd_text": "Python FastAPI LangGraph AI application developer position"},
+        )
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 429
     assert response.headers["retry-after"] == "30"

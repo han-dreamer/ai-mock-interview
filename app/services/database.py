@@ -75,6 +75,28 @@ async def setup_database() -> None:
 
         await conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                display_name TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL DEFAULT 'user',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_login_at TIMESTAMPTZ
+            )
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_users_created_at
+            ON users (created_at DESC)
+            """
+        )
+
+        await conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS interview_sessions (
                 session_id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,

@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
     cors_allowed_origins: str = "*"
-    app_access_token: str = ""
+    auth_secret_key: str = "dev-change-me"
+    auth_token_expire_minutes: int = 60 * 24 * 7
 
     # Redis runtime enhancement layer. Disabled by default so local tests and
     # demos can run without a Redis server.

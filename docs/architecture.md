@@ -40,7 +40,7 @@ flowchart TD
 |---|---|---|
 | Web UI | `web/` | React/Vite 前端，负责 JD 输入、简历上传、WebSocket 实时对话、报告展示 |
 | API 层 | `app/api/` | FastAPI REST 与 WebSocket 路由，处理 session、answer、resume、report 等接口 |
-| 安全与运行增强 | `app/security.py`, `app/cache/` | 访问码校验、Redis 限流、回答锁、会话缓存、WebSocket presence |
+| 安全与运行增强 | `app/security.py`, `app/cache/` | JWT 鉴权、账号会话隔离、Redis 限流、回答锁、会话缓存、WebSocket presence |
 | 会话管理 | `app/services/session_manager.py` | 创建 session、驱动 LangGraph、管理 checkpoint、同步报告和状态 |
 | Agent 工作流 | `app/agents/` | JD 分析、简历分析、出题、提问、追问、评估、双轮流转 |
 | RAG | `app/rag/` | 题库切分、向量检索、BM25、RRF、多查询、重排、parent hydration |
@@ -56,7 +56,7 @@ React 前端能力：
 
 - 创建练习模式或专业模式面试。
 - 上传 PDF / PNG / JPG / JPEG 简历。
-- 填写访问码并通过 `X-Access-Code` 或 WebSocket query token 访问后端。
+- 注册/登录后通过 JWT 访问后端；REST 使用 `Authorization` header，WebSocket 使用 query token。
 - 通过 WebSocket 接收 `status`、`question`、`follow_up`、`report` 等消息。
 - 展示实时对话、面试进度、技能标签、结构化报告。
 - 支持提前结束面试并导出 Markdown 报告。

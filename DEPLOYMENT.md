@@ -44,8 +44,9 @@ CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://localhos
 # Production example:
 # CORS_ALLOWED_ORIGINS=https://interview.your-domain.com
 
-# Optional public-trial access gate. Set this before sharing a public URL.
-APP_ACCESS_TOKEN=demo-2026
+# Authentication. Change this before sharing a public URL.
+AUTH_SECRET_KEY=change-me-to-a-long-random-secret
+AUTH_TOKEN_EXPIRE_MINUTES=10080
 
 # Redis runtime enhancement layer. Keep false for plain local Python runs.
 # docker-compose enables Redis for the API container automatically.
@@ -61,34 +62,29 @@ WS_PRESENCE_TTL_SECONDS=90
 
 # React/Vite build-time variables for the included web container.
 VITE_API_BASE_URL=/api
-VITE_ACCESS_CODE=
 ```
 
 Frontend `web/.env.local` for local development:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
-VITE_ACCESS_CODE=
 ```
 
 Frontend production variables for a split deployment:
 
 ```env
 VITE_API_BASE_URL=https://api.your-domain.com/api
-VITE_ACCESS_CODE=
 ```
 
 Frontend production variables for the included Docker Compose deployment:
 
 ```env
 VITE_API_BASE_URL=/api
-VITE_ACCESS_CODE=
 ```
 
 With `VITE_API_BASE_URL=/api`, the Nginx web container serves React and proxies
 `/api`, `/api/ws`, and `/health` to the backend container.
-
-Do not treat `VITE_ACCESS_CODE` as a secret. Browser variables are visible to users. For public trials, it is better to ask users to type the access code in the UI.
+Users register or log in through the web UI. REST calls use `Authorization: Bearer <JWT>`, and WebSocket connections pass the same JWT in the `token` query parameter.
 
 ## 2. Local Production-Like Run
 
@@ -154,7 +150,8 @@ Set backend:
 
 ```env
 CORS_ALLOWED_ORIGINS=https://interview.your-domain.com
-APP_ACCESS_TOKEN=your-demo-access-code
+AUTH_SECRET_KEY=change-me-to-a-long-random-secret
+AUTH_TOKEN_EXPIRE_MINUTES=10080
 DEBUG=false
 ```
 
@@ -260,7 +257,8 @@ Then set:
 ```env
 CORS_ALLOWED_ORIGINS=https://interview.your-domain.com
 VITE_API_BASE_URL=/api
-APP_ACCESS_TOKEN=your-demo-access-code
+AUTH_SECRET_KEY=change-me-to-a-long-random-secret
+AUTH_TOKEN_EXPIRE_MINUTES=10080
 DEBUG=false
 ```
 
@@ -289,19 +287,19 @@ After deployment:
 ```text
 1. Open https://interview.your-domain.com/health
 2. Open https://interview.your-domain.com
-3. Enter the trial access code
+3. Register a test account or log in
 4. Start an interview from a real JD
 5. Test resume upload
 6. Answer one question and confirm WebSocket messages work
 7. Stop early and confirm a report is generated
-8. Restart the backend and confirm Chroma/memory/upload data is still present
+8. Restart the backend and confirm PostgreSQL/pgvector/Redis-backed data is still present
 ```
 
 ## 9. Security Notes
 
 - Rotate any API keys that were ever committed or shared.
 - Keep `.env` out of Git and Docker images.
-- Set `APP_ACCESS_TOKEN` before sharing a public URL.
+- Set a long random `AUTH_SECRET_KEY` before sharing a public URL.
 - Set `DEBUG=false` in production.
 - Limit `CORS_ALLOWED_ORIGINS` to the real frontend domain.
-- Back up `chroma_data` and `memory_data` before redeploying or moving servers.
+- Back up PostgreSQL volumes before redeploying or moving servers.

@@ -165,6 +165,7 @@ button {
   background: var(--red);
 }
 
+.auth-layout,
 .setup-layout,
 .workspace,
 .report-layout {
@@ -172,6 +173,7 @@ button {
   margin: 0 auto;
 }
 
+.auth-layout,
 .setup-layout {
   display: grid;
   grid-template-columns: minmax(300px, 0.86fr) minmax(420px, 1fr);
@@ -180,6 +182,7 @@ button {
   min-height: calc(100vh - 120px);
 }
 
+.auth-copy,
 .setup-copy {
   padding: 24px 0;
 }
@@ -193,6 +196,7 @@ button {
   text-transform: uppercase;
 }
 
+.auth-copy h1,
 .setup-copy h1,
 .report-hero h1 {
   margin: 14px 0 16px;
@@ -203,6 +207,7 @@ button {
   letter-spacing: 0;
 }
 
+.auth-copy p,
 .setup-copy p {
   max-width: 620px;
   color: var(--muted);
@@ -226,6 +231,7 @@ button {
   font-size: 13px;
 }
 
+.auth-panel,
 .setup-panel,
 .interview-panel,
 .sidebar,
@@ -237,6 +243,7 @@ button {
   backdrop-filter: blur(18px);
 }
 
+.auth-panel,
 .setup-panel {
   border-radius: 8px;
   padding: 24px;
@@ -301,33 +308,6 @@ button {
     background 0.18s ease;
 }
 
-.access-input {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  align-items: center;
-  border: 1px solid rgba(37, 48, 54, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
-}
-
-.access-input svg {
-  justify-self: center;
-  color: var(--teal-deep);
-}
-
-.access-input input {
-  border: 0;
-  background: transparent;
-  min-height: 44px;
-  padding-left: 0;
-}
-
-.access-input:focus-within {
-  border-color: rgba(31, 138, 131, 0.68);
-  box-shadow: 0 0 0 4px rgba(31, 138, 131, 0.1);
-  background: #fff;
-}
-
 .field textarea {
   min-height: 210px;
   resize: vertical;
@@ -350,8 +330,28 @@ button {
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 150px;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 1fr);
   gap: 12px;
+  align-items: stretch;
+}
+
+.identity-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(37, 48, 54, 0.12);
+  border-radius: 8px;
+  background: rgba(37, 48, 54, 0.04);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.identity-note svg {
+  flex: 0 0 auto;
+  color: var(--teal-deep);
 }
 
 .mode-switch {
@@ -369,6 +369,7 @@ button {
 .ghost-button,
 .secondary-button,
 .danger-button,
+.icon-text-button,
 .primary-small {
   display: inline-flex;
   align-items: center;
@@ -380,6 +381,13 @@ button {
   color: var(--charcoal);
   min-height: 40px;
   padding: 0 12px;
+}
+
+.icon-text-button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .mode-switch button {

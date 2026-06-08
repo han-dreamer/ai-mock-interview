@@ -20,7 +20,8 @@ from app.models.ws_protocol import (
     ServerReport,
     ServerStatus,
 )
-from app.security import is_valid_access_token
+from app.security import decode_access_token
+from app.services.user_repository import get_user_by_id
 from app.services.session_manager import get_session_manager
 
 router = APIRouter()
@@ -149,14 +150,27 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
     pending session starts the graph automatically. Reconnecting to an existing
     session resumes from the latest checkpoint instead of starting a duplicate run.
     """
-    if not is_valid_access_token(websocket.query_params.get("access_token")):
-        await websocket.close(code=4401, reason="Invalid or missing access code")
+    raw_token = websocket.query_params.get("token") or websocket.query_params.get("auth_token")
+    if not raw_token:
+        await websocket.close(code=4401, reason="Authentication required")
+        return
+    try:
+        payload = decode_access_token(raw_token)
+        current_user = await get_user_by_id(str(payload["sub"]))
+    except Exception:
+        await websocket.close(code=4401, reason="Invalid authentication token")
+        return
+    if not current_user or not current_user.is_active:
+        await websocket.close(code=4401, reason="User not found or inactive")
         return
 
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         await websocket.close(code=4004, reason="Session not found")
+        return
+    if session.user_id != current_user.id:
+        await websocket.close(code=4403, reason="Session access denied")
         return
 
     await websocket.accept()

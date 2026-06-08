@@ -2,10 +2,45 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.api import interview_rest, interview_ws
-from app.config import settings
 from app.main import app
 from app.models.interview import ChatMessage, InterviewSession
 from app.models.resume import ResumeParseMetadata, ResumeParseResult
+from app.models.user import UserInDB
+from app.security import create_access_token, get_current_user
+
+
+def _fake_user(user_id="user-1") -> UserInDB:
+    return UserInDB(
+        id=user_id,
+        username=f"{user_id}@example.test",
+        password_hash="hash",
+        display_name=user_id,
+        role="user",
+        is_active=True,
+    )
+
+
+def _client_with_user(user: UserInDB | None = None) -> TestClient:
+    current_user = user or _fake_user()
+
+    async def override_current_user():
+        return current_user
+
+    app.dependency_overrides[get_current_user] = override_current_user
+    return TestClient(app)
+
+
+def _clear_overrides():
+    app.dependency_overrides.clear()
+
+
+def _ws_url(session_id: str, user: UserInDB | None = None) -> str:
+    token = create_access_token(user or _fake_user())
+    return f"/api/ws/interview/{session_id}?token={token}"
+
+
+async def _fake_get_user_by_id(user_id: str):
+    return _fake_user(user_id)
 
 
 class FakeInterviewManager:
@@ -126,35 +161,39 @@ class FakeInterviewManager:
 def test_rest_interview_contract(monkeypatch):
     manager = FakeInterviewManager()
     monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
-    client = TestClient(app)
+    client = _client_with_user()
 
-    created = client.post(
-        "/api/interview/start",
-        json={
-            "jd_text": "Python FastAPI LangGraph AI application developer position",
-            "mode": "practice",
-            "max_follow_ups": 1,
-        },
-    )
-    assert created.status_code == 200
-    session_id = created.json()["session_id"]
+    try:
+        created = client.post(
+            "/api/interview/start",
+            json={
+                "jd_text": "Python FastAPI LangGraph AI application developer position",
+                "mode": "practice",
+                "max_follow_ups": 1,
+            },
+        )
+        assert created.status_code == 200
+        session_id = created.json()["session_id"]
+        assert manager.sessions[session_id].user_id == "user-1"
 
-    started = client.post(f"/api/interview/session/{session_id}/start")
-    assert started.status_code == 200
-    assert started.json()["next"]["kind"] == "question"
-    assert started.json()["next"]["skill_tags"] == ["FastAPI", "LangGraph"]
+        started = client.post(f"/api/interview/session/{session_id}/start")
+        assert started.status_code == 200
+        assert started.json()["next"]["kind"] == "question"
+        assert started.json()["next"]["skill_tags"] == ["FastAPI", "LangGraph"]
 
-    answered = client.post(
-        f"/api/interview/session/{session_id}/answer",
-        json={"content": "I use FastAPI endpoints to invoke the session manager."},
-    )
-    assert answered.status_code == 200
-    assert answered.json()["state"]["interview_complete"] is True
-    assert answered.json()["report"]["overall_score"] == 8.0
+        answered = client.post(
+            f"/api/interview/session/{session_id}/answer",
+            json={"content": "I use FastAPI endpoints to invoke the session manager."},
+        )
+        assert answered.status_code == 200
+        assert answered.json()["state"]["interview_complete"] is True
+        assert answered.json()["report"]["overall_score"] == 8.0
 
-    report = client.get(f"/api/interview/report/{session_id}")
-    assert report.status_code == 200
-    assert report.json()["grade"] == "B"
+        report = client.get(f"/api/interview/report/{session_id}")
+        assert report.status_code == 200
+        assert report.json()["grade"] == "B"
+    finally:
+        _clear_overrides()
 
 
 def test_resume_upload_contract(monkeypatch):
@@ -175,21 +214,25 @@ def test_resume_upload_contract(monkeypatch):
         )
 
     monkeypatch.setattr(interview_rest, "_store_and_parse_resume", fake_parse)
-    client = TestClient(app)
-    created = client.post(
-        "/api/interview/start",
-        json={"jd_text": "Python FastAPI LangGraph AI application developer position"},
-    )
-    session_id = created.json()["session_id"]
+    client = _client_with_user()
 
-    uploaded = client.post(
-        f"/api/interview/session/{session_id}/resume",
-        files={"resume_file": ("resume.pdf", b"%PDF fake", "application/pdf")},
-    )
+    try:
+        created = client.post(
+            "/api/interview/start",
+            json={"jd_text": "Python FastAPI LangGraph AI application developer position"},
+        )
+        session_id = created.json()["session_id"]
 
-    assert uploaded.status_code == 200
-    assert manager.resume_text == "Python FastAPI LangGraph"
-    assert uploaded.json()["resume"]["metadata"]["parser"] == "fake"
+        uploaded = client.post(
+            f"/api/interview/session/{session_id}/resume",
+            files={"resume_file": ("resume.pdf", b"%PDF fake", "application/pdf")},
+        )
+
+        assert uploaded.status_code == 200
+        assert manager.resume_text == "Python FastAPI LangGraph"
+        assert uploaded.json()["resume"]["metadata"]["parser"] == "fake"
+    finally:
+        _clear_overrides()
 
 
 def test_websocket_interview_contract(monkeypatch):
@@ -197,11 +240,13 @@ def test_websocket_interview_contract(monkeypatch):
     session = manager.create_session(
         session_id="ws-session",
         jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
     )
     monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
+    monkeypatch.setattr(interview_ws, "get_user_by_id", _fake_get_user_by_id)
     client = TestClient(app)
 
-    with client.websocket_connect(f"/api/ws/interview/{session.session_id}") as ws:
+    with client.websocket_connect(_ws_url(session.session_id)) as ws:
         assert ws.receive_json()["type"] == "status"
         assert ws.receive_json()["stage"] == "questions_ready"
         question = ws.receive_json()
@@ -221,11 +266,13 @@ def test_websocket_start_handshake_does_not_duplicate_question(monkeypatch):
     session = manager.create_session(
         session_id="ws-start-handshake-session",
         jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
     )
     monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
+    monkeypatch.setattr(interview_ws, "get_user_by_id", _fake_get_user_by_id)
     client = TestClient(app)
 
-    with client.websocket_connect(f"/api/ws/interview/{session.session_id}") as ws:
+    with client.websocket_connect(_ws_url(session.session_id)) as ws:
         assert ws.receive_json()["type"] == "status"
         assert ws.receive_json()["stage"] == "questions_ready"
         assert ws.receive_json()["type"] == "question"
@@ -236,43 +283,53 @@ def test_websocket_start_handshake_does_not_duplicate_question(monkeypatch):
         assert ws.receive_json()["type"] == "interview_end"
 
 
-def test_access_code_required_for_rest_when_enabled(monkeypatch):
-    manager = FakeInterviewManager()
-    monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
-    monkeypatch.setattr(settings, "app_access_token", "demo-code")
-    client = TestClient(app)
-
-    blocked = client.post(
-        "/api/interview/start",
-        json={"jd_text": "Python FastAPI LangGraph AI application developer position"},
-    )
-    assert blocked.status_code == 401
-
-    allowed = client.post(
-        "/api/interview/start",
-        json={"jd_text": "Python FastAPI LangGraph AI application developer position"},
-        headers={"X-Access-Code": "demo-code"},
-    )
-    assert allowed.status_code == 200
-
-
-def test_access_code_required_for_websocket_when_enabled(monkeypatch):
+def test_rest_rejects_cross_user_session(monkeypatch):
     manager = FakeInterviewManager()
     session = manager.create_session(
-        session_id="guarded-ws-session",
+        session_id="other-user-session",
         jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-2",
+    )
+    monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
+    client = _client_with_user(_fake_user("user-1"))
+
+    try:
+        response = client.get(f"/api/interview/session/{session.session_id}")
+        assert response.status_code == 403
+    finally:
+        _clear_overrides()
+
+
+def test_websocket_requires_authentication(monkeypatch):
+    manager = FakeInterviewManager()
+    session = manager.create_session(
+        session_id="ws-auth-required-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
     )
     monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
-    monkeypatch.setattr(settings, "app_access_token", "demo-code")
     client = TestClient(app)
 
     try:
         with client.websocket_connect(f"/api/ws/interview/{session.session_id}"):
-            raise AssertionError("WebSocket should reject a missing access code")
+            raise AssertionError("WebSocket should reject a missing auth token")
     except WebSocketDisconnect as exc:
         assert exc.code == 4401
 
-    with client.websocket_connect(
-        f"/api/ws/interview/{session.session_id}?access_token=demo-code"
-    ) as ws:
-        assert ws.receive_json()["type"] == "status"
+
+def test_websocket_rejects_cross_user_session(monkeypatch):
+    manager = FakeInterviewManager()
+    session = manager.create_session(
+        session_id="ws-cross-user-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-2",
+    )
+    monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
+    monkeypatch.setattr(interview_ws, "get_user_by_id", _fake_get_user_by_id)
+    client = TestClient(app)
+
+    try:
+        with client.websocket_connect(_ws_url(session.session_id, _fake_user("user-1"))):
+            raise AssertionError("WebSocket should reject cross-user access")
+    except WebSocketDisconnect as exc:
+        assert exc.code == 4403

@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.cache.rate_limiter import check_rate_limit
 from app.cache.session_cache import save_session_meta
 from app.config import settings
 from app.models.interview import ChatMessage
-from app.security import token_from_request
+from app.models.user import UserInDB
+from app.security import get_current_user
 from app.services.session_manager import get_session_manager
 from app.utils.file_parser import parse_resume_with_metadata
 
@@ -24,7 +25,6 @@ class StartInterviewRequest(BaseModel):
     jd_text: str = Field(..., min_length=10, description="Job description text")
     max_follow_ups: int = Field(default=2, ge=0, le=5)
     mode: str = Field(default="practice", description="Interview mode: practice or professional")
-    user_id: str = Field(default="local-user", description="Stable user id for long-term memory")
 
 
 class StartInterviewResponse(BaseModel):
@@ -101,15 +101,17 @@ def _rate_limit_identity(
     user_id: str | None = None,
     session_id: str | None = None,
 ) -> str:
-    token = token_from_request(request).strip()
     host = request.client.host if request.client else "unknown"
-    if token:
-        return f"token:{token}:ip:{host}"
     if session_id:
         return f"session:{session_id}"
     if user_id:
         return f"user:{user_id}"
     return f"ip:{host}"
+
+
+def _assert_session_owner(session, current_user: UserInDB) -> None:
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Session access denied")
 
 
 async def _enforce_rate_limit(
@@ -170,11 +172,15 @@ async def _store_and_parse_resume(session_id: str, upload: UploadFile):
 
 
 @router.post("/start", response_model=StartInterviewResponse)
-async def start_interview(req: StartInterviewRequest, request: Request):
+async def start_interview(
+    req: StartInterviewRequest,
+    request: Request,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Create a new interview session. Returns a session_id for WebSocket connection."""
     await _enforce_rate_limit(
         "interview:start",
-        _rate_limit_identity(request, user_id=req.user_id),
+        _rate_limit_identity(request, user_id=current_user.id),
         settings.rate_limit_start_per_minute,
         60,
     )
@@ -186,7 +192,7 @@ async def start_interview(req: StartInterviewRequest, request: Request):
         jd_text=req.jd_text,
         max_follow_ups=req.max_follow_ups,
         mode=mode,
-        user_id=req.user_id or "local-user",
+        user_id=current_user.id,
     )
     await mgr.persist_session(session_id)
     await save_session_meta(session, mode)
@@ -201,14 +207,14 @@ async def start_interview(req: StartInterviewRequest, request: Request):
 @router.post("/start-with-resume")
 async def start_interview_with_resume(
     request: Request,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
     jd_text: str = Form(..., min_length=10),
     resume_file: UploadFile = File(...),
     max_follow_ups: int = Form(default=2, ge=0, le=5),
     mode: str = Form(default="professional"),
-    user_id: str = Form(default="local-user"),
 ):
     """Create a session and attach a parsed resume in one multipart request."""
-    identity = _rate_limit_identity(request, user_id=user_id)
+    identity = _rate_limit_identity(request, user_id=current_user.id)
     await _enforce_rate_limit(
         "interview:start",
         identity,
@@ -232,7 +238,7 @@ async def start_interview_with_resume(
         mode=normalized_mode,
         resume_text=parse_result.normalized_text,
         resume_parse_result=parse_result,
-        user_id=user_id or "local-user",
+        user_id=current_user.id,
     )
     await mgr.persist_session(session_id)
     await save_session_meta(session, normalized_mode)
@@ -246,12 +252,16 @@ async def start_interview_with_resume(
 
 
 @router.get("/session/{session_id}")
-async def get_session(session_id: str):
+async def get_session(
+    session_id: str,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Get the current state of an interview session."""
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     return session
 
 
@@ -259,6 +269,7 @@ async def get_session(session_id: str):
 async def upload_resume(
     session_id: str,
     request: Request,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
     resume_file: UploadFile = File(...),
 ):
     """Upload and parse a resume for an existing session before interview start."""
@@ -266,6 +277,7 @@ async def upload_resume(
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     await _enforce_rate_limit(
         "interview:resume",
         _rate_limit_identity(request, user_id=session.user_id, session_id=session_id),
@@ -289,12 +301,16 @@ async def upload_resume(
 
 
 @router.post("/session/{session_id}/start")
-async def start_session_graph(session_id: str):
+async def start_session_graph(
+    session_id: str,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Start the LangGraph interview and return the first interviewer turn."""
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     try:
         state = await mgr.start_interview_graph(session_id)
     except Exception as exc:
@@ -303,12 +319,18 @@ async def start_session_graph(session_id: str):
 
 
 @router.post("/session/{session_id}/answer")
-async def submit_session_answer(session_id: str, req: SubmitAnswerRequest, request: Request):
+async def submit_session_answer(
+    session_id: str,
+    req: SubmitAnswerRequest,
+    request: Request,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Submit one answer through REST and return the next turn or final report."""
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     await _enforce_rate_limit(
         "interview:answer",
         _rate_limit_identity(request, user_id=session.user_id, session_id=session_id),
@@ -328,12 +350,16 @@ async def submit_session_answer(session_id: str, req: SubmitAnswerRequest, reque
 
 
 @router.post("/session/{session_id}/stop")
-async def stop_session(session_id: str):
+async def stop_session(
+    session_id: str,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Stop a running interview and generate an early report when possible."""
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     try:
         state = await mgr.stop_interview(session_id)
     except Exception as exc:
@@ -342,12 +368,16 @@ async def stop_session(session_id: str):
 
 
 @router.get("/session/{session_id}/state")
-async def get_session_state(session_id: str):
+async def get_session_state(
+    session_id: str,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Return lightweight session metadata plus the latest LangGraph state snapshot."""
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     state = mgr.get_last_state(session_id)
     return {
         "session": _dump(session),
@@ -359,12 +389,16 @@ async def get_session_state(session_id: str):
 
 
 @router.get("/report/{session_id}")
-async def get_report(session_id: str):
+async def get_report(
+    session_id: str,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+):
     """Get the final interview report for a completed session."""
     mgr = get_session_manager()
     session = await mgr.ensure_session_loaded(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
     if session.status != "completed":
         raise HTTPException(status_code=400, detail="Interview not yet completed")
     report = mgr.get_report_for_session(session_id)

@@ -10,6 +10,7 @@ import {
   FileText,
   KeyRound,
   Loader2,
+  LogOut,
   MessageSquareText,
   Play,
   RotateCcw,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, RefObject } from "react";
-import { API_BASE_URL, checkHealth, startInterview, websocketUrl } from "./api";
+import { API_BASE_URL, checkHealth, getMe, login, register, startInterview, websocketUrl } from "./api";
 import type {
   ChatItem,
   CurrentTurn,
@@ -28,6 +29,7 @@ import type {
   InterviewReport,
   ResumeParseResult,
   ServerMessage,
+  UserPublic,
 } from "./types";
 
 const sampleJd = `岗位：AI 应用开发工程师
@@ -46,8 +48,10 @@ const sampleJd = `岗位：AI 应用开发工程师
 
 type View = "setup" | "interview" | "report";
 type ConnectionState = "idle" | "connecting" | "open" | "closed" | "error";
+type AuthMode = "login" | "register";
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const AUTH_TOKEN_KEY = "ai-mock-auth-token";
 
 const modeName = (mode: InterviewMode) =>
   mode === "professional" ? "专业面试模式" : "练习模式";
@@ -79,10 +83,15 @@ export function App() {
   const [jdText, setJdText] = useState(sampleJd);
   const [mode, setMode] = useState<InterviewMode>("professional");
   const [maxFollowUps, setMaxFollowUps] = useState(2);
-  const [userId, setUserId] = useState("portfolio-user");
-  const [accessCode, setAccessCode] = useState(
-    () => localStorage.getItem("ai-mock-access-code") ?? import.meta.env.VITE_ACCESS_CODE ?? "",
-  );
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem(AUTH_TOKEN_KEY) ?? "");
+  const [currentUser, setCurrentUser] = useState<UserPublic | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resume, setResume] = useState<ResumeParseResult | null>(null);
   const [sessionId, setSessionId] = useState("");
@@ -108,6 +117,39 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    if (!authToken) {
+      setCurrentUser(null);
+      setIsCheckingAuth(false);
+      return;
+    }
+
+    setIsCheckingAuth(true);
+    getMe(authToken)
+      .then((user) => {
+        if (active) {
+          setCurrentUser(user);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          localStorage.removeItem(AUTH_TOKEN_KEY);
+          setAuthToken("");
+          setCurrentUser(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsCheckingAuth(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authToken]);
+
+  useEffect(() => {
     transcriptRef.current?.scrollTo({
       top: transcriptRef.current.scrollHeight,
       behavior: "smooth",
@@ -118,7 +160,41 @@ export function App() {
     return () => socketRef.current?.close();
   }, []);
 
-  const canStart = jdText.trim().length >= 10 && !isStarting;
+  const canStart = Boolean(currentUser && authToken && jdText.trim().length >= 10 && !isStarting);
+
+  async function handleAuthSubmit(event: FormEvent) {
+    event.preventDefault();
+    setAuthError("");
+    setIsAuthenticating(true);
+    try {
+      const response =
+        authMode === "login"
+          ? await login({ username: authUsername.trim(), password: authPassword })
+          : await register({
+              username: authUsername.trim(),
+              password: authPassword,
+              displayName: displayName.trim(),
+            });
+      localStorage.setItem(AUTH_TOKEN_KEY, response.access_token);
+      setAuthToken(response.access_token);
+      setCurrentUser(response.user);
+      setAuthPassword("");
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : "认证失败，请稍后重试。");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  function handleLogout() {
+    socketRef.current?.close();
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    setAuthToken("");
+    setCurrentUser(null);
+    setAuthPassword("");
+    setAuthError("");
+    resetAll();
+  }
 
   async function handleStart() {
     if (!canStart) return;
@@ -130,13 +206,9 @@ export function App() {
         jdText: jdText.trim(),
         maxFollowUps,
         mode,
-        userId: userId.trim() || "portfolio-user",
-        accessCode,
+        token: authToken,
         resumeFile,
       });
-      if (accessCode.trim()) {
-        localStorage.setItem("ai-mock-access-code", accessCode.trim());
-      }
       setSessionId(response.session_id);
       setResume(response.resume ?? null);
       setMessages([
@@ -153,7 +225,7 @@ export function App() {
       connectSocket(response.session_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建面试失败");
-      setStatus("创建会话失败，请检查访问码、后端服务或模型配置。");
+      setStatus("创建会话失败，请检查登录状态、后端服务或模型配置。");
     } finally {
       setIsStarting(false);
     }
@@ -164,7 +236,7 @@ export function App() {
     socketRef.current?.close();
     setConnection("connecting");
     setStatus("正在连接实时面试通道。");
-    const ws = new WebSocket(websocketUrl(id, accessCode));
+    const ws = new WebSocket(websocketUrl(id, authToken));
     socketRef.current = ws;
 
     ws.onopen = () => {
@@ -313,15 +385,44 @@ export function App() {
           </span>
         </button>
         <div className="topbar-actions">
+          {currentUser && (
+            <span className="api-pill" title={currentUser.username}>
+              <User size={14} />
+              {currentUser.display_name || currentUser.username}
+            </span>
+          )}
           <StatusPill connection={connection} />
           <span className="api-pill" title={API_BASE_URL}>
             <Activity size={14} />
             {health?.status === "ok" ? health.model ?? "后端在线" : "检查后端"}
           </span>
+          {currentUser && (
+            <button className="icon-text-button" onClick={handleLogout} type="button">
+              <LogOut size={14} />
+              退出
+            </button>
+          )}
         </div>
       </header>
 
-      {view === "setup" && (
+      {!currentUser && (
+        <AuthPage
+          mode={authMode}
+          setMode={setAuthMode}
+          username={authUsername}
+          setUsername={setAuthUsername}
+          password={authPassword}
+          setPassword={setAuthPassword}
+          displayName={displayName}
+          setDisplayName={setDisplayName}
+          isSubmitting={isAuthenticating}
+          isChecking={isCheckingAuth}
+          error={authError}
+          onSubmit={handleAuthSubmit}
+        />
+      )}
+
+      {currentUser && view === "setup" && (
         <SetupPage
           jdText={jdText}
           setJdText={setJdText}
@@ -329,10 +430,7 @@ export function App() {
           setMode={setMode}
           maxFollowUps={maxFollowUps}
           setMaxFollowUps={setMaxFollowUps}
-          userId={userId}
-          setUserId={setUserId}
-          accessCode={accessCode}
-          setAccessCode={setAccessCode}
+          currentUser={currentUser}
           resumeFile={resumeFile}
           setResumeFile={setResumeFile}
           isStarting={isStarting}
@@ -342,7 +440,7 @@ export function App() {
         />
       )}
 
-      {view === "interview" && (
+      {currentUser && view === "interview" && (
         <InterviewPage
           mode={mode}
           sessionId={sessionId}
@@ -365,7 +463,7 @@ export function App() {
         />
       )}
 
-      {view === "report" && report && (
+      {currentUser && view === "report" && report && (
         <ReportPage
           report={report}
           mode={mode}
@@ -378,6 +476,118 @@ export function App() {
   );
 }
 
+function AuthPage(props: {
+  mode: AuthMode;
+  setMode: (value: AuthMode) => void;
+  username: string;
+  setUsername: (value: string) => void;
+  password: string;
+  setPassword: (value: string) => void;
+  displayName: string;
+  setDisplayName: (value: string) => void;
+  isSubmitting: boolean;
+  isChecking: boolean;
+  error: string;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  const isRegister = props.mode === "register";
+  return (
+    <section className="auth-layout">
+      <div className="auth-copy">
+        <span className="eyebrow">用户工作区</span>
+        <h1>先登录，再开始你的专属模拟面试</h1>
+        <p>
+          每个账号会拥有独立的面试会话、短期检查点和长期记忆空间，后续可以继续扩展历史记录与报告管理。
+        </p>
+        <div className="signal-strip">
+          <span>JWT 身份认证</span>
+          <span>账号隔离会话</span>
+          <span>长期记忆绑定用户</span>
+        </div>
+      </div>
+
+      <form className="auth-panel" onSubmit={props.onSubmit}>
+        <div className="panel-heading">
+          <KeyRound size={20} />
+          <div>
+            <h2>{isRegister ? "创建账号" : "登录账号"}</h2>
+            <p>{isRegister ? "注册后会自动进入面试工作台。" : "使用你的账号进入个人面试空间。"}</p>
+          </div>
+        </div>
+
+        <div className="mode-switch" aria-label="认证模式">
+          <button
+            className={!isRegister ? "active" : ""}
+            onClick={() => props.setMode("login")}
+            type="button"
+          >
+            登录
+          </button>
+          <button
+            className={isRegister ? "active" : ""}
+            onClick={() => props.setMode("register")}
+            type="button"
+          >
+            注册
+          </button>
+        </div>
+
+        <label className="field">
+          <span>用户名</span>
+          <input
+            autoComplete="username"
+            minLength={3}
+            maxLength={64}
+            required
+            value={props.username}
+            onChange={(event) => props.setUsername(event.target.value)}
+            placeholder="例如 guguohan"
+          />
+        </label>
+
+        {isRegister && (
+          <label className="field">
+            <span>显示名称</span>
+            <input
+              autoComplete="name"
+              maxLength={64}
+              value={props.displayName}
+              onChange={(event) => props.setDisplayName(event.target.value)}
+              placeholder="可选，用于页面右上角展示"
+            />
+          </label>
+        )}
+
+        <label className="field">
+          <span>密码</span>
+          <input
+            autoComplete={isRegister ? "new-password" : "current-password"}
+            minLength={isRegister ? 6 : 1}
+            maxLength={128}
+            required
+            type="password"
+            value={props.password}
+            onChange={(event) => props.setPassword(event.target.value)}
+            placeholder={isRegister ? "至少 6 位" : "输入密码"}
+          />
+        </label>
+
+        {props.error && (
+          <div className="error-callout">
+            <AlertCircle size={16} />
+            {props.error}
+          </div>
+        )}
+
+        <button className="primary-action" disabled={props.isSubmitting || props.isChecking} type="submit">
+          {props.isSubmitting || props.isChecking ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
+          {props.isChecking ? "正在检查登录状态" : isRegister ? "注册并进入" : "登录"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function SetupPage(props: {
   jdText: string;
   setJdText: (value: string) => void;
@@ -385,10 +595,7 @@ function SetupPage(props: {
   setMode: (value: InterviewMode) => void;
   maxFollowUps: number;
   setMaxFollowUps: (value: number) => void;
-  userId: string;
-  setUserId: (value: string) => void;
-  accessCode: string;
-  setAccessCode: (value: string) => void;
+  currentUser: UserPublic;
   resumeFile: File | null;
   setResumeFile: (file: File | null) => void;
   isStarting: boolean;
@@ -418,7 +625,9 @@ function SetupPage(props: {
           <ClipboardList size={20} />
           <div>
             <h2>创建面试会话</h2>
-            <p>粘贴目标岗位 JD，专业模式下建议上传简历，以便系统进行项目深挖。</p>
+            <p>
+              当前账号：{props.currentUser.display_name || props.currentUser.username}。粘贴目标岗位 JD，专业模式下建议上传简历。
+            </p>
           </div>
         </div>
 
@@ -434,15 +643,6 @@ function SetupPage(props: {
 
         <div className="grid-2">
           <label className="field">
-            <span>用户 ID</span>
-            <input
-              value={props.userId}
-              onChange={(event) => props.setUserId(event.target.value)}
-              placeholder="用于长期记忆，例如 demo-user"
-            />
-          </label>
-
-          <label className="field">
             <span>每题最多追问</span>
             <input
               type="number"
@@ -452,19 +652,11 @@ function SetupPage(props: {
               onChange={(event) => props.setMaxFollowUps(Number(event.target.value))}
             />
           </label>
-        </div>
-
-        <label className="field">
-          <span>访问码</span>
-          <div className="access-input">
-            <KeyRound size={16} />
-            <input
-              value={props.accessCode}
-              onChange={(event) => props.setAccessCode(event.target.value)}
-              placeholder="公开试用环境需要填写，本地开发可留空"
-            />
+          <div className="identity-note">
+            <User size={16} />
+            <span>面试记录会自动绑定当前登录账号。</span>
           </div>
-        </label>
+        </div>
 
         <div className="mode-switch" aria-label="面试模式">
           <button
