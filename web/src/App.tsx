@@ -25,6 +25,7 @@ import type { FormEvent, RefObject } from "react";
 import {
   API_BASE_URL,
   checkHealth,
+  exportInterviewReport,
   getInterviewReport,
   getMe,
   listInterviewSessions,
@@ -311,6 +312,23 @@ export function App() {
     }
   }
 
+  async function downloadReport(sessionId: string, format: "markdown" | "pdf") {
+    setError("");
+    setHistoryError("");
+    try {
+      const blob = await exportInterviewReport(authToken, sessionId, format);
+      if (format === "pdf") {
+        openPrintableReport(blob, sessionId);
+        return;
+      }
+      downloadBlob(blob, `interview-report-${sessionId.slice(0, 8)}.md`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "导出报告失败。";
+      setError(message);
+      setHistoryError(message);
+    }
+  }
+
   function resumeHistoricalInterview(item: InterviewSessionSummary) {
     socketRef.current?.close();
     setSessionId(item.session_id);
@@ -558,6 +576,7 @@ export function App() {
           onRefresh={loadHistory}
           onViewReport={openHistoricalReport}
           onResume={resumeHistoricalInterview}
+          onExport={downloadReport}
         />
       )}
 
@@ -565,9 +584,11 @@ export function App() {
         <ReportPage
           report={report}
           mode={mode}
+          sessionId={sessionId}
           messages={messages}
           onRestart={resetAll}
           onBackToInterview={() => setView("interview")}
+          onExport={downloadReport}
         />
       )}
     </main>
@@ -808,6 +829,7 @@ function HistoryPage(props: {
   onRefresh: () => void;
   onViewReport: (item: InterviewSessionSummary) => void;
   onResume: (item: InterviewSessionSummary) => void;
+  onExport: (sessionId: string, format: "markdown" | "pdf") => void;
 }) {
   return (
     <section className="history-layout">
@@ -880,10 +902,20 @@ function HistoryPage(props: {
 
               <div className="history-actions">
                 {item.has_report ? (
-                  <button className="primary-small" onClick={() => props.onViewReport(item)} type="button">
-                    <FileText size={16} />
-                    查看报告
-                  </button>
+                  <>
+                    <button className="primary-small" onClick={() => props.onViewReport(item)} type="button">
+                      <FileText size={16} />
+                      查看报告
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => props.onExport(item.session_id, "pdf")}
+                      type="button"
+                    >
+                      <FileText size={16} />
+                      打印 PDF
+                    </button>
+                  </>
                 ) : null}
                 {item.status !== "completed" && item.status !== "failed" ? (
                   <button className="secondary-button" onClick={() => props.onResume(item)} type="button">
@@ -921,6 +953,28 @@ function formatSessionTime(value?: string | null) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableReport(blob: Blob, sessionId: string) {
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, `interview-report-${sessionId.slice(0, 8)}`);
+  if (!win) {
+    downloadBlob(blob, `interview-report-${sessionId.slice(0, 8)}.html`);
+    return;
+  }
+  win.addEventListener("load", () => {
+    win.focus();
+    win.print();
   });
 }
 
@@ -1077,41 +1131,15 @@ function InterviewPage(props: {
 function ReportPage(props: {
   report: InterviewReport;
   mode: InterviewMode;
+  sessionId: string;
   messages: ChatItem[];
   onRestart: () => void;
   onBackToInterview: () => void;
+  onExport: (sessionId: string, format: "markdown" | "pdf") => void;
 }) {
   const skillScores = props.report.skill_scores ?? [];
   const grade = props.report.grade ?? "?";
   const overall = props.report.overall_score ?? 0;
-
-  function exportMarkdown() {
-    const lines = [
-      "# AI 模拟面试报告",
-      "",
-      `- 模式：${modeName(props.mode)}`,
-      `- 总分：${overall.toFixed(1)}/10`,
-      `- 等级：${grade}`,
-      "",
-      "## 总体评价",
-      props.report.overall_assessment ?? "",
-      "",
-      "## 技能评分",
-      ...skillScores.map((item) => `- ${item.skill_name}: ${item.score}/10 - ${item.evidence}`),
-      "",
-      "## 面试记录",
-      ...props.messages
-        .filter((item) => item.role !== "system")
-        .map((item) => `- ${item.role === "candidate" ? "候选人" : "面试官"}：${item.content}`),
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "interview-report.md";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
 
   return (
     <section className="report-layout">
@@ -1129,9 +1157,16 @@ function ReportPage(props: {
           </div>
         </div>
         <div className="report-actions">
-          <button className="secondary-button" onClick={exportMarkdown}>
+          <button
+            className="secondary-button"
+            onClick={() => props.onExport(props.sessionId, "markdown")}
+          >
             <FileText size={16} />
             导出 Markdown
+          </button>
+          <button className="secondary-button" onClick={() => props.onExport(props.sessionId, "pdf")}>
+            <FileText size={16} />
+            打印 / 保存 PDF
           </button>
           <button className="primary-small" onClick={props.onRestart}>
             <RotateCcw size={16} />

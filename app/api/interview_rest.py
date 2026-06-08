@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.cache.rate_limiter import check_rate_limit
@@ -15,6 +16,7 @@ from app.config import settings
 from app.models.interview import ChatMessage
 from app.models.user import UserInDB
 from app.security import get_current_user
+from app.services.report_exporter import markdown_to_html, report_to_markdown
 from app.services.session_manager import get_session_manager
 from app.utils.file_parser import parse_resume_with_metadata
 
@@ -427,3 +429,46 @@ async def get_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
+
+
+@router.get("/report/{session_id}/export")
+async def export_report(
+    session_id: str,
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    format: str = "markdown",
+):
+    """Export a completed interview report as Markdown or printable HTML."""
+    mgr = get_session_manager()
+    session = await mgr.ensure_session_loaded(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    _assert_session_owner(session, current_user)
+    if session.status != "completed":
+        raise HTTPException(status_code=400, detail="Interview not yet completed")
+    report = mgr.get_report_for_session(session_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    mode = mgr.get_session_mode(session_id)
+    markdown = report_to_markdown(report, mode=mode, session_id=session_id)
+    normalized_format = format.lower().strip()
+    filename_base = f"interview-report-{session_id[:8]}"
+    if normalized_format in {"html", "pdf"}:
+        html = markdown_to_html(markdown)
+        return Response(
+            content=html,
+            media_type="text/html; charset=utf-8",
+            headers={
+                "Content-Disposition": (
+                    "inline" if normalized_format == "pdf" else "attachment"
+                )
+                + f'; filename="{filename_base}.html"'
+            },
+        )
+    if normalized_format in {"markdown", "md"}:
+        return Response(
+            content=markdown,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename_base}.md"'},
+        )
+    raise HTTPException(status_code=400, detail="Unsupported export format")

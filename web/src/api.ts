@@ -116,6 +116,23 @@ export async function getInterviewReport(token: string, sessionId: string): Prom
   return parseJson(response);
 }
 
+export async function exportInterviewReport(
+  token: string,
+  sessionId: string,
+  format: "markdown" | "pdf" | "html",
+): Promise<Blob> {
+  const response = await fetch(
+    `${API_BASE_URL}/interview/report/${sessionId}/export?format=${encodeURIComponent(format)}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+  if (!response.ok) {
+    await parseJson(response);
+  }
+  return response.blob();
+}
+
 export async function startInterview(input: {
   jdText: string;
   maxFollowUps: number;

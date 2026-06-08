@@ -360,6 +360,32 @@ def test_rest_lists_only_current_user_sessions(monkeypatch):
         _clear_overrides()
 
 
+def test_rest_exports_completed_report(monkeypatch):
+    manager = FakeInterviewManager()
+    session = manager.create_session(
+        session_id="export-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
+    )
+    session.status = "completed"
+    monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
+    client = _client_with_user(_fake_user("user-1"))
+
+    try:
+        markdown = client.get(f"/api/interview/report/{session.session_id}/export")
+        assert markdown.status_code == 200
+        assert "text/markdown" in markdown.headers["content-type"]
+        assert "AI 模拟面试报告" in markdown.text
+        assert "8.0/10" in markdown.text
+
+        html = client.get(f"/api/interview/report/{session.session_id}/export?format=pdf")
+        assert html.status_code == 200
+        assert "text/html" in html.headers["content-type"]
+        assert "<html" in html.text
+    finally:
+        _clear_overrides()
+
+
 def test_websocket_requires_authentication(monkeypatch):
     manager = FakeInterviewManager()
     session = manager.create_session(
