@@ -23,6 +23,26 @@ export interface StartInterviewResponse {
   resume?: ResumeParseResult;
 }
 
+export interface InterviewSessionSummary {
+  session_id: string;
+  title: string;
+  mode: InterviewMode;
+  status: "pending" | "analyzing" | "interviewing" | "evaluating" | "completed" | "failed";
+  graph_started: boolean;
+  has_report: boolean;
+  question_count: number;
+  assessment_count: number;
+  current_question_index: number;
+  max_follow_ups: number;
+  jd_preview: string;
+  overall_score?: number | null;
+  grade?: "A" | "B" | "C" | "D" | null;
+  error_message?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  completed_at?: string | null;
+}
+
 export interface ResumeParseResult {
   normalized_text?: string;
   candidate_name?: string;

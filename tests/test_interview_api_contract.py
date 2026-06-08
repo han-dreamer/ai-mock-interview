@@ -106,6 +106,34 @@ class FakeInterviewManager:
     def get_report_for_session(self, _session_id):
         return self.report
 
+    async def list_user_sessions(self, user_id, limit=50, offset=0):
+        items = []
+        for session in self.sessions.values():
+            if session.user_id != user_id:
+                continue
+            items.append(
+                {
+                    "session_id": session.session_id,
+                    "title": session.jd_text[:36],
+                    "mode": getattr(self, "mode", "practice"),
+                    "status": session.status,
+                    "graph_started": self.graph_started,
+                    "has_report": session.status == "completed",
+                    "question_count": len(self.last_state.get("question_plan", []) or []),
+                    "assessment_count": len(self.last_state.get("assessments", []) or []),
+                    "current_question_index": session.current_question_index,
+                    "max_follow_ups": session.max_follow_ups,
+                    "jd_preview": session.jd_text[:180],
+                    "overall_score": self.report["overall_score"] if session.status == "completed" else None,
+                    "grade": self.report["grade"] if session.status == "completed" else None,
+                    "error_message": None,
+                    "created_at": None,
+                    "updated_at": None,
+                    "completed_at": None,
+                }
+            )
+        return items[offset : offset + limit]
+
     async def start_interview_graph(self, session_id):
         self.graph_started = True
         self.sessions[session_id].status = "interviewing"
@@ -296,6 +324,38 @@ def test_rest_rejects_cross_user_session(monkeypatch):
     try:
         response = client.get(f"/api/interview/session/{session.session_id}")
         assert response.status_code == 403
+    finally:
+        _clear_overrides()
+
+
+def test_rest_lists_only_current_user_sessions(monkeypatch):
+    manager = FakeInterviewManager()
+    own = manager.create_session(
+        session_id="own-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
+    )
+    own.status = "completed"
+    manager.create_session(
+        session_id="other-session",
+        jd_text="Java backend developer position",
+        user_id="user-2",
+    )
+    manager.last_state = {
+        "question_plan": [{"skill_tags": ["FastAPI"]}],
+        "assessments": [{"question_id": 1, "score": 8}],
+    }
+    monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
+    client = _client_with_user(_fake_user("user-1"))
+
+    try:
+        response = client.get("/api/interview/sessions")
+        assert response.status_code == 200
+        items = response.json()["items"]
+        assert [item["session_id"] for item in items] == ["own-session"]
+        assert items[0]["has_report"] is True
+        assert items[0]["overall_score"] == 8.0
+        assert items[0]["grade"] == "B"
     finally:
         _clear_overrides()
 

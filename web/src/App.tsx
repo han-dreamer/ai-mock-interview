@@ -8,6 +8,7 @@ import {
   CircleStop,
   ClipboardList,
   FileText,
+  History,
   KeyRound,
   Loader2,
   LogOut,
@@ -21,12 +22,23 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, RefObject } from "react";
-import { API_BASE_URL, checkHealth, getMe, login, register, startInterview, websocketUrl } from "./api";
+import {
+  API_BASE_URL,
+  checkHealth,
+  getInterviewReport,
+  getMe,
+  listInterviewSessions,
+  login,
+  register,
+  startInterview,
+  websocketUrl,
+} from "./api";
 import type {
   ChatItem,
   CurrentTurn,
   InterviewMode,
   InterviewReport,
+  InterviewSessionSummary,
   ResumeParseResult,
   ServerMessage,
   UserPublic,
@@ -46,7 +58,7 @@ const sampleJd = `岗位：AI 应用开发工程师
 - 熟悉 REST API、WebSocket、数据库和基础部署流程；
 - 有 AI 应用项目经验，能解释架构设计、异常处理和效果评估方法。`;
 
-type View = "setup" | "interview" | "report";
+type View = "setup" | "history" | "interview" | "report";
 type ConnectionState = "idle" | "connecting" | "open" | "closed" | "error";
 type AuthMode = "login" | "register";
 
@@ -95,6 +107,9 @@ export function App() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resume, setResume] = useState<ResumeParseResult | null>(null);
   const [sessionId, setSessionId] = useState("");
+  const [historyItems, setHistoryItems] = useState<InterviewSessionSummary[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   const [messages, setMessages] = useState<ChatItem[]>([]);
   const [currentTurn, setCurrentTurn] = useState<CurrentTurn | null>(null);
   const [answer, setAnswer] = useState("");
@@ -162,6 +177,19 @@ export function App() {
 
   const canStart = Boolean(currentUser && authToken && jdText.trim().length >= 10 && !isStarting);
 
+  async function loadHistory() {
+    if (!authToken) return;
+    setIsHistoryLoading(true);
+    setHistoryError("");
+    try {
+      setHistoryItems(await listInterviewSessions(authToken));
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "加载历史记录失败。");
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
   async function handleAuthSubmit(event: FormEvent) {
     event.preventDefault();
     setAuthError("");
@@ -179,6 +207,7 @@ export function App() {
       setAuthToken(response.access_token);
       setCurrentUser(response.user);
       setAuthPassword("");
+      setView("setup");
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : "认证失败，请稍后重试。");
     } finally {
@@ -223,6 +252,7 @@ export function App() {
       ]);
       setView("interview");
       connectSocket(response.session_id);
+      void loadHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建面试失败");
       setStatus("创建会话失败，请检查登录状态、后端服务或模型配置。");
@@ -258,6 +288,49 @@ export function App() {
     ws.onclose = () => {
       setConnection((prev) => (prev === "error" ? "error" : "closed"));
     };
+  }
+
+  async function openHistoryView() {
+    setView("history");
+    await loadHistory();
+  }
+
+  async function openHistoricalReport(item: InterviewSessionSummary) {
+    setError("");
+    try {
+      const data = await getInterviewReport(authToken, item.session_id);
+      socketRef.current?.close();
+      setSessionId(item.session_id);
+      setMode(item.mode);
+      setMessages([]);
+      setReport(data);
+      setConnection("idle");
+      setView("report");
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "加载报告失败。");
+    }
+  }
+
+  function resumeHistoricalInterview(item: InterviewSessionSummary) {
+    socketRef.current?.close();
+    setSessionId(item.session_id);
+    setMode(item.mode);
+    setResume(null);
+    setMessages([
+      {
+        id: uid(),
+        role: "system",
+        content: "正在恢复历史面试，会从后端 checkpoint 读取当前进度。",
+      },
+    ]);
+    setCurrentTurn(null);
+    setAnswer("");
+    setReport(null);
+    setError("");
+    setStatus("正在恢复历史面试。");
+    setStage("resuming");
+    setView("interview");
+    connectSocket(item.session_id);
   }
 
   function handleServerMessage(payload: ServerMessage) {
@@ -321,6 +394,7 @@ export function App() {
       setStatus("报告已生成。");
       setStage("completed");
       setView("report");
+      void loadHistory();
       return;
     }
 
@@ -405,6 +479,19 @@ export function App() {
         </div>
       </header>
 
+      {currentUser && (
+        <nav className="view-tabs" aria-label="工作台视图">
+          <button className={view === "setup" ? "active" : ""} onClick={() => setView("setup")} type="button">
+            <Play size={15} />
+            开始面试
+          </button>
+          <button className={view === "history" ? "active" : ""} onClick={openHistoryView} type="button">
+            <History size={15} />
+            历史记录
+          </button>
+        </nav>
+      )}
+
       {!currentUser && (
         <AuthPage
           mode={authMode}
@@ -460,6 +547,17 @@ export function App() {
           onStop={stopInterview}
           onReconnect={() => connectSocket()}
           onBack={() => setView("setup")}
+        />
+      )}
+
+      {currentUser && view === "history" && (
+        <HistoryPage
+          items={historyItems}
+          isLoading={isHistoryLoading}
+          error={historyError}
+          onRefresh={loadHistory}
+          onViewReport={openHistoricalReport}
+          onResume={resumeHistoricalInterview}
         />
       )}
 
@@ -701,6 +799,129 @@ function SetupPage(props: {
       </div>
     </section>
   );
+}
+
+function HistoryPage(props: {
+  items: InterviewSessionSummary[];
+  isLoading: boolean;
+  error: string;
+  onRefresh: () => void;
+  onViewReport: (item: InterviewSessionSummary) => void;
+  onResume: (item: InterviewSessionSummary) => void;
+}) {
+  return (
+    <section className="history-layout">
+      <div className="history-header">
+        <div>
+          <span className="eyebrow">面试记录</span>
+          <h1>历史面试与报告管理</h1>
+          <p>查看当前账号下的面试进度、报告结果，或继续未完成的模拟面试。</p>
+        </div>
+        <button className="secondary-button" onClick={props.onRefresh} type="button">
+          {props.isLoading ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />}
+          刷新
+        </button>
+      </div>
+
+      {props.error && (
+        <div className="error-callout">
+          <AlertCircle size={16} />
+          {props.error}
+        </div>
+      )}
+
+      {props.isLoading && !props.items.length ? (
+        <div className="empty-state">
+          <Loader2 className="spin" size={18} />
+          正在加载历史记录
+        </div>
+      ) : null}
+
+      {!props.isLoading && !props.items.length ? (
+        <div className="empty-state">
+          <History size={18} />
+          还没有历史面试，先创建一场新的模拟面试。
+        </div>
+      ) : null}
+
+      {props.items.length ? (
+        <div className="history-list">
+          {props.items.map((item) => (
+            <article className="history-item" key={item.session_id}>
+              <div className="history-main">
+                <div className="history-title-row">
+                  <h2>{item.title || "未命名面试"}</h2>
+                  <span className={`session-status status-${item.status}`}>
+                    {sessionStatusName(item.status)}
+                  </span>
+                </div>
+                <p>{item.jd_preview}</p>
+                <div className="history-meta">
+                  <span>{modeName(item.mode)}</span>
+                  <span>{item.assessment_count} 次回答</span>
+                  {item.question_count ? <span>{item.question_count} 道题</span> : null}
+                  <span>{formatSessionTime(item.updated_at || item.created_at)}</span>
+                </div>
+              </div>
+
+              <div className="history-score">
+                {item.overall_score ? (
+                  <>
+                    <strong>{item.overall_score.toFixed(1)}</strong>
+                    <span>{item.grade ?? "报告"}</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>{item.current_question_index || "-"}</strong>
+                    <span>当前题</span>
+                  </>
+                )}
+              </div>
+
+              <div className="history-actions">
+                {item.has_report ? (
+                  <button className="primary-small" onClick={() => props.onViewReport(item)} type="button">
+                    <FileText size={16} />
+                    查看报告
+                  </button>
+                ) : null}
+                {item.status !== "completed" && item.status !== "failed" ? (
+                  <button className="secondary-button" onClick={() => props.onResume(item)} type="button">
+                    <Play size={16} />
+                    继续面试
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function sessionStatusName(status: InterviewSessionSummary["status"]) {
+  const map: Record<InterviewSessionSummary["status"], string> = {
+    pending: "待开始",
+    analyzing: "分析中",
+    interviewing: "面试中",
+    evaluating: "评估中",
+    completed: "已完成",
+    failed: "失败",
+  };
+  return map[status] ?? status;
+}
+
+function formatSessionTime(value?: string | null) {
+  if (!value) return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function InterviewPage(props: {

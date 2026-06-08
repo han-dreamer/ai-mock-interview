@@ -131,6 +131,32 @@ button {
   gap: 10px;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  max-width: 1260px;
+  margin: -10px auto 22px;
+}
+
+.view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(37, 48, 54, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+}
+
+.view-tabs button.active {
+  background: var(--charcoal);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(37, 48, 54, 0.16);
+}
+
 .status-pill,
 .api-pill {
   display: inline-flex;
@@ -167,6 +193,7 @@ button {
 
 .auth-layout,
 .setup-layout,
+.history-layout,
 .workspace,
 .report-layout {
   max-width: 1260px;
@@ -229,6 +256,146 @@ button {
   border-radius: 8px;
   color: var(--charcoal);
   font-size: 13px;
+}
+
+.history-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.history-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 0 4px;
+}
+
+.history-header h1 {
+  margin: 10px 0 8px;
+  color: var(--charcoal);
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.history-header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid rgba(37, 48, 54, 0.12);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 16px 42px rgba(24, 32, 38, 0.08);
+  padding: 18px;
+}
+
+.history-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.history-title-row h2 {
+  margin: 0;
+  color: var(--charcoal);
+  font-size: 19px;
+}
+
+.history-main p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.history-meta span,
+.session-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(37, 48, 54, 0.06);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.session-status.status-completed {
+  color: var(--green);
+  background: rgba(47, 122, 83, 0.1);
+}
+
+.session-status.status-failed {
+  color: var(--red);
+  background: rgba(190, 75, 73, 0.1);
+}
+
+.session-status.status-interviewing,
+.session-status.status-analyzing,
+.session-status.status-evaluating {
+  color: var(--teal-deep);
+  background: rgba(31, 138, 131, 0.1);
+}
+
+.history-score {
+  display: grid;
+  place-items: center;
+  min-height: 78px;
+  border-left: 1px solid rgba(37, 48, 54, 0.1);
+  border-right: 1px solid rgba(37, 48, 54, 0.1);
+}
+
+.history-score strong {
+  color: var(--charcoal);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.history-score span {
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 150px;
+  border: 1px dashed rgba(37, 48, 54, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.54);
+  color: var(--muted);
 }
 
 .auth-panel,
@@ -867,6 +1034,7 @@ button {
   .topbar,
   .topbar-actions,
   .setup-layout,
+  .history-item,
   .workspace,
   .report-grid,
   .grid-2 {
@@ -883,13 +1051,37 @@ button {
     flex-wrap: wrap;
   }
 
+  .view-tabs {
+    margin-top: -4px;
+    overflow-x: auto;
+  }
+
   .setup-layout {
     min-height: auto;
   }
 
   .setup-copy h1,
+  .history-header h1,
   .report-hero h1 {
     font-size: 42px;
+  }
+
+  .history-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .history-score {
+    place-items: start;
+    border-left: 0;
+    border-right: 0;
+    border-top: 1px solid rgba(37, 48, 54, 0.1);
+    border-bottom: 1px solid rgba(37, 48, 54, 0.1);
+    padding: 12px 0;
+  }
+
+  .history-actions {
+    justify-content: flex-start;
   }
 
   .sidebar {

@@ -1,4 +1,11 @@
-import type { AuthTokenResponse, InterviewMode, StartInterviewResponse, UserPublic } from "./types";
+import type {
+  AuthTokenResponse,
+  InterviewMode,
+  InterviewReport,
+  InterviewSessionSummary,
+  StartInterviewResponse,
+  UserPublic,
+} from "./types";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
@@ -89,6 +96,21 @@ export async function login(input: {
 
 export async function getMe(token: string): Promise<UserPublic> {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    headers: authHeaders(token),
+  });
+  return parseJson(response);
+}
+
+export async function listInterviewSessions(token: string): Promise<InterviewSessionSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/interview/sessions`, {
+    headers: authHeaders(token),
+  });
+  const payload = await parseJson<{ items: InterviewSessionSummary[] }>(response);
+  return payload.items;
+}
+
+export async function getInterviewReport(token: string, sessionId: string): Promise<InterviewReport> {
+  const response = await fetch(`${API_BASE_URL}/interview/report/${sessionId}`, {
     headers: authHeaders(token),
   });
   return parseJson(response);

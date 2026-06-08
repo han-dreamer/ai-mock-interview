@@ -251,6 +251,28 @@ async def start_interview_with_resume(
     }
 
 
+@router.get("/sessions")
+async def list_sessions(
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    limit: int = 50,
+    offset: int = 0,
+):
+    """List interview sessions owned by the current user."""
+    normalized_limit = max(1, min(limit, 100))
+    normalized_offset = max(0, offset)
+    mgr = get_session_manager()
+    sessions = await mgr.list_user_sessions(
+        current_user.id,
+        limit=normalized_limit,
+        offset=normalized_offset,
+    )
+    return {
+        "items": sessions,
+        "limit": normalized_limit,
+        "offset": normalized_offset,
+    }
+
+
 @router.get("/session/{session_id}")
 async def get_session(
     session_id: str,

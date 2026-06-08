@@ -24,6 +24,9 @@ class PersistedSession:
     persisted_assessment_count: int = 0
     final_memory_saved: bool = False
     error_message: str | None = None
+    created_at: Any | None = None
+    updated_at: Any | None = None
+    completed_at: Any | None = None
 
 
 def _dump(value: Any) -> Any:
@@ -72,6 +75,9 @@ def _session_from_row(row: dict[str, Any]) -> PersistedSession:
         persisted_assessment_count=row.get("persisted_assessment_count") or 0,
         final_memory_saved=bool(row.get("final_memory_saved")),
         error_message=row.get("error_message"),
+        created_at=row.get("created_at"),
+        updated_at=row.get("updated_at"),
+        completed_at=row.get("completed_at"),
     )
 
 
@@ -206,3 +212,32 @@ async def load_session_record(session_id: str) -> PersistedSession | None:
     if not row:
         return None
     return _session_from_row(row)
+
+
+async def list_session_records_for_user(
+    user_id: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[PersistedSession]:
+    """List persisted session metadata for one user, newest first."""
+    if not session_store_enabled():
+        return []
+    pool = get_pool()
+    if pool is None:
+        logger.debug("Postgres session store enabled but pool is not initialized")
+        return []
+
+    async with pool.connection() as conn:
+        cursor = await conn.execute(
+            """
+            SELECT *
+            FROM interview_sessions
+            WHERE user_id = %s
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (user_id, limit, offset),
+        )
+        rows = await cursor.fetchall()
+    return [_session_from_row(row) for row in rows]

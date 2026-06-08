@@ -39,7 +39,12 @@ from app.models.question import QuestionItem
 from app.models.report import InterviewReport, PracticeReport, ProfessionalReport
 from app.models.resume import ResumeParseResult
 from app.services.checkpoint import get_checkpointer
-from app.services.session_repository import load_session_record, save_session_record
+from app.services.session_repository import (
+    PersistedSession,
+    list_session_records_for_user,
+    load_session_record,
+    save_session_record,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +220,136 @@ class SessionManager:
         )
         logger.info("Restored session metadata from Postgres: %s", session_id)
         return persisted.session
+
+    async def list_user_sessions(
+        self,
+        user_id: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Return lightweight session summaries for one user."""
+        summaries_by_id: dict[str, dict[str, Any]] = {}
+
+        persisted_rows = await list_session_records_for_user(
+            user_id,
+            limit=limit + offset,
+            offset=0,
+        )
+        for persisted in persisted_rows:
+            summaries_by_id[persisted.session.session_id] = self._session_summary_from_persisted(
+                persisted
+            )
+
+        for data in self._sessions.values():
+            if data.session.user_id != user_id:
+                continue
+            summaries_by_id[data.session.session_id] = self._session_summary_from_data(data)
+
+        summaries = list(summaries_by_id.values())
+        summaries.sort(key=lambda item: item.get("updated_at") or item.get("created_at") or "", reverse=True)
+        return summaries[offset : offset + limit]
+
+    def _session_summary_from_persisted(self, persisted: PersistedSession) -> dict[str, Any]:
+        session = persisted.session
+        last_state = persisted.last_state or {}
+        return self._build_session_summary(
+            session=session,
+            mode=persisted.mode,
+            graph_started=persisted.graph_started,
+            last_state=last_state,
+            error_message=persisted.error_message,
+            created_at=persisted.created_at,
+            updated_at=persisted.updated_at,
+            completed_at=persisted.completed_at,
+        )
+
+    def _session_summary_from_data(self, data: _SessionData) -> dict[str, Any]:
+        return self._build_session_summary(
+            session=data.session,
+            mode=data.mode,
+            graph_started=data.graph_started,
+            last_state=data.last_state,
+            error_message=data.error_message,
+            created_at=None,
+            updated_at=None,
+            completed_at=None,
+        )
+
+    def _build_session_summary(
+        self,
+        *,
+        session: InterviewSession,
+        mode: str,
+        graph_started: bool,
+        last_state: dict[str, Any],
+        error_message: str | None,
+        created_at: Any | None,
+        updated_at: Any | None,
+        completed_at: Any | None,
+    ) -> dict[str, Any]:
+        report = (
+            last_state.get("practice_report")
+            or last_state.get("professional_report")
+            or last_state.get("final_report")
+        )
+        question_count = self._count_questions(last_state)
+        assessment_count = len(last_state.get("assessments", []) or session.assessments or [])
+        title = self._session_title(session.jd_text)
+        return {
+            "session_id": session.session_id,
+            "title": title,
+            "mode": mode,
+            "status": session.status,
+            "graph_started": graph_started,
+            "has_report": bool(report or session.status == "completed"),
+            "question_count": question_count,
+            "assessment_count": assessment_count,
+            "current_question_index": session.current_question_index,
+            "max_follow_ups": session.max_follow_ups,
+            "jd_preview": self._text_preview(session.jd_text, 180),
+            "overall_score": self._report_value(report, "overall_score"),
+            "grade": self._report_value(report, "grade"),
+            "error_message": error_message,
+            "created_at": self._iso_or_none(created_at),
+            "updated_at": self._iso_or_none(updated_at),
+            "completed_at": self._iso_or_none(completed_at),
+        }
+
+    def _count_questions(self, state: dict[str, Any]) -> int:
+        plans = [
+            state.get("question_plan", []),
+            state.get("round1_question_plan", []),
+            state.get("round2_question_plan", []),
+        ]
+        return sum(len(plan or []) for plan in plans)
+
+    def _session_title(self, jd_text: str) -> str:
+        for line in jd_text.splitlines():
+            text = line.strip(" #：:")
+            if text:
+                return self._text_preview(text, 36)
+        return "未命名面试"
+
+    def _text_preview(self, text: str, length: int) -> str:
+        compact = " ".join(text.split())
+        if len(compact) <= length:
+            return compact
+        return compact[: length - 1].rstrip() + "..."
+
+    def _report_value(self, report: Any, key: str) -> Any:
+        if not report:
+            return None
+        if isinstance(report, dict):
+            return report.get(key)
+        return getattr(report, key, None)
+
+    def _iso_or_none(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return str(value)
 
     def get_session_mode(self, session_id: str) -> str:
         data = self._sessions.get(session_id)
