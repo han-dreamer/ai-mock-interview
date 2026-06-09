@@ -466,11 +466,11 @@ class SessionManager:
             data.report = restored
         return restored
 
-    def get_last_state(self, session_id: str) -> dict[str, Any]:
+    async def get_last_state(self, session_id: str) -> dict[str, Any]:
         data = self._sessions.get(session_id)
         if not data:
             return {}
-        graph_state = self.get_graph_state(session_id)
+        graph_state = await self.get_graph_state(session_id)
         if graph_state:
             self._sync_session_from_state(session_id, graph_state)
             return graph_state
@@ -593,7 +593,7 @@ class SessionManager:
 
         async with data.lock:
             if data.graph_started:
-                state = self.get_graph_state(session_id) or data.last_state
+                state = await self.get_graph_state(session_id) or data.last_state
                 self._sync_session_from_state(session_id, state)
                 await self._cache_runtime_state(session_id, state)
                 return state
@@ -670,7 +670,10 @@ class SessionManager:
 
                 self.update_session_status(session_id, "evaluating")
                 try:
-                    graph.update_state(config, {"current_candidate_answer": answer})
+                    if hasattr(graph, "aupdate_state"):
+                        await graph.aupdate_state(config, {"current_candidate_answer": answer})
+                    else:
+                        graph.update_state(config, {"current_candidate_answer": answer})
                     result = await graph.ainvoke(None, config)
                     await self._persist_new_assessment_memories(session_id, result, answer)
 
@@ -714,7 +717,10 @@ class SessionManager:
             config = self._config(session_id)
 
             try:
-                snapshot = graph.get_state(config)
+                if hasattr(graph, "aget_state"):
+                    snapshot = await graph.aget_state(config)
+                else:
+                    snapshot = graph.get_state(config)
                 current_state = snapshot.values if snapshot else data.last_state
             except Exception:
                 current_state = data.last_state
@@ -773,11 +779,14 @@ class SessionManager:
                 self.update_session_status(session_id, "failed")
                 raise
 
-    def get_graph_state(self, session_id: str) -> dict | None:
+    async def get_graph_state(self, session_id: str) -> dict | None:
         mode = self.get_session_mode(session_id)
         graph = self._get_graph(mode)
         try:
-            snapshot = graph.get_state(self._config(session_id))
+            if hasattr(graph, "aget_state"):
+                snapshot = await graph.aget_state(self._config(session_id))
+            else:
+                snapshot = graph.get_state(self._config(session_id))
             return snapshot.values if snapshot else None
         except Exception:
             return None

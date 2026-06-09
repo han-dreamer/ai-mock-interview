@@ -92,7 +92,7 @@ class FakeInterviewManager:
     def has_graph_started(self, _session_id):
         return self.graph_started
 
-    def get_last_state(self, _session_id):
+    async def get_last_state(self, _session_id):
         return self.last_state
 
     def set_resume(self, session_id, resume_text, resume_parse_result=None):

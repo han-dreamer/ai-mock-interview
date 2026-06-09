@@ -116,7 +116,7 @@ async def _send_report_if_ready(websocket: WebSocket, session_id: str, state: di
 
 async def _ensure_started(websocket: WebSocket, session_id: str) -> dict | None:
     mgr = get_session_manager()
-    state = mgr.get_last_state(session_id)
+    state = await mgr.get_last_state(session_id)
     if mgr.has_graph_started(session_id) and state:
         await _send(websocket, ServerStatus(stage="resumed", message="Interview session resumed."))
         return state
@@ -240,7 +240,7 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
                 continue
 
             if not current_turn_delivered:
-                state = mgr.get_last_state(session_id)
+                state = await mgr.get_last_state(session_id)
                 current_turn_delivered = await _send_current_turn(websocket, state)
                 if current_turn_delivered:
                     await _send(

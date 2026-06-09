@@ -402,7 +402,7 @@ async def get_session_state(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     _assert_session_owner(session, current_user)
-    state = mgr.get_last_state(session_id)
+    state = await mgr.get_last_state(session_id)
     return {
         "session": _dump(session),
         "graph_started": mgr.has_graph_started(session_id),
