@@ -1,0 +1,302 @@
+[
+  {
+    "id": "ragas-v2-001",
+    "category": "rag_chunking",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "What is Parent-Child Chunking in RAG and why is it useful?",
+    "ground_truth": "Parent-Child Chunking retrieves small child chunks for better recall, links them to larger parent documents with parent ids, and gives generation more complete context than isolated chunks.",
+    "expected_source_ids": ["rag-adv-001"],
+    "tags": ["RAG", "Chunking", "Parent-Child Retrieval"]
+  },
+  {
+    "id": "ragas-v2-002",
+    "category": "rag_chunking",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How does structure-aware chunking differ from fixed-size chunking?",
+    "ground_truth": "Fixed-size chunking splits by character or token count, while structure-aware chunking respects semantic fields such as title, section, question, answer, table, and metadata aligned with natural document boundaries.",
+    "expected_source_ids": ["rag-adv-002"],
+    "tags": ["RAG", "Chunking", "Document Processing"]
+  },
+  {
+    "id": "ragas-v2-003",
+    "category": "rag_chunking",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "Why add contextual headers to retrieval chunks?",
+    "ground_truth": "Contextual headers add compact source context such as category, section path, skill tags, chunk type, and parent question so isolated chunks are easier for embedding and keyword retrieval to interpret.",
+    "expected_source_ids": ["rag-adv-003"],
+    "tags": ["RAG", "Contextual Retrieval", "Chunking"]
+  },
+  {
+    "id": "ragas-v2-004",
+    "category": "rag_retrieval",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "What is query rewriting in a RAG system?",
+    "ground_truth": "Query rewriting transforms the user's original query into retrieval-friendly forms by expanding abbreviations, adding domain terms, or splitting a broad query into subqueries.",
+    "expected_source_ids": ["rag-adv-005"],
+    "tags": ["RAG", "Query Rewriting", "Retrieval"]
+  },
+  {
+    "id": "ragas-v2-005",
+    "category": "rag_retrieval",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How does hybrid retrieval combine vector search and BM25?",
+    "ground_truth": "Hybrid retrieval combines semantic vector search with BM25 keyword search, then fuses rankings so both meaning-level similarity and exact technical term matching can contribute.",
+    "expected_source_ids": ["rag-adv-006"],
+    "tags": ["RAG", "Hybrid Retrieval", "BM25", "Vector Search"]
+  },
+  {
+    "id": "ragas-v2-006",
+    "category": "rag_retrieval",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "Why is Reciprocal Rank Fusion useful when combining retrievers?",
+    "ground_truth": "Reciprocal Rank Fusion combines ranked lists using reciprocal rank positions, avoids comparing raw scores across retrievers, and rewards documents that rank highly in multiple lists.",
+    "expected_source_ids": ["rag-adv-007"],
+    "tags": ["RAG", "RRF", "Ranking"]
+  },
+  {
+    "id": "ragas-v2-007",
+    "category": "rag_retrieval",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "What is reranking in RAG and when should it run?",
+    "ground_truth": "Reranking reorders initially retrieved candidates with a more precise method such as metadata rules, cross-encoders, or LLM scoring, and should run on a moderate candidate set rather than the full corpus.",
+    "expected_source_ids": ["rag-adv-008"],
+    "tags": ["RAG", "Reranking", "Cross Encoder"]
+  },
+  {
+    "id": "ragas-v2-008",
+    "category": "rag_interview_planning",
+    "difficulty": "medium",
+    "question_type": "multi_hop",
+    "question": "How would you design metadata-aware reranking for an interview question RAG system?",
+    "ground_truth": "Metadata-aware reranking can boost questions overlapping JD skills, resume projects, missing skills, target difficulty, and second-round categories while penalizing overrepresented categories for diversity.",
+    "expected_source_ids": ["rag-adv-009"],
+    "tags": ["RAG", "Reranking", "Metadata", "Interview Planning"]
+  },
+  {
+    "id": "ragas-v2-009",
+    "category": "rag_evaluation",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you evaluate retrieval quality in a RAG system?",
+    "ground_truth": "Retrieval quality can be evaluated with golden queries and expected document ids using Hit@K, Recall@K, and MRR, and by comparing vector-only, hybrid, reranked, and hydrated variants.",
+    "expected_source_ids": ["rag-adv-011"],
+    "tags": ["RAG", "Evaluation", "Retrieval Metrics"]
+  },
+  {
+    "id": "ragas-v2-010",
+    "category": "rag_evaluation",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "What do context precision and context recall measure in RAG evaluation?",
+    "ground_truth": "Context precision measures how much retrieved context is relevant, while context recall measures whether necessary evidence was retrieved; together they reveal the precision-recall trade-off of retrieval context.",
+    "expected_source_ids": ["rag-adv-012"],
+    "tags": ["RAG", "RAGAS", "Evaluation"]
+  },
+  {
+    "id": "ragas-v2-011",
+    "category": "rag_tuning",
+    "difficulty": "easy",
+    "question_type": "single_hop",
+    "question": "How should top_k be chosen in a RAG retrieval pipeline?",
+    "ground_truth": "Small top_k may miss evidence, large top_k may add noise and cost, and the best value should be tuned with retrieval metrics plus downstream generation quality.",
+    "expected_source_ids": ["rag-adv-013"],
+    "tags": ["RAG", "Retrieval Tuning", "Context Window"]
+  },
+  {
+    "id": "ragas-v2-012",
+    "category": "rag_debugging",
+    "difficulty": "medium",
+    "question_type": "multi_hop",
+    "question": "How would you distinguish retrieval failure from generation failure in a RAG system?",
+    "ground_truth": "Detect retrieval failures by inspecting query-document alignment, chunking or context loss, rewritten queries, top-k candidates, scores, and source metadata; detect generation failures by checking whether the generator ignored retrieved evidence even when relevant context was retrieved.",
+    "expected_source_ids": ["rag-adv-014", "rag-adv-024"],
+    "tags": ["RAG", "Failure Modes", "Debugging"]
+  },
+  {
+    "id": "ragas-v2-013",
+    "category": "rag_traceability",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you design source tracking in a parent-child RAG system?",
+    "ground_truth": "Track parent document ids for citations, child chunk ids and matched chunk text for debugging, chunk type for explainability, and validate generated source ids against retrieved sources.",
+    "expected_source_ids": ["rag-adv-015"],
+    "tags": ["RAG", "Source Tracking", "Parent-Child Retrieval"]
+  },
+  {
+    "id": "ragas-v2-014",
+    "category": "rag_retrieval",
+    "difficulty": "easy",
+    "question_type": "single_hop",
+    "question": "How can diversity control improve RAG retrieval results?",
+    "ground_truth": "Diversity control prevents one category, document, source, or parent id from dominating the final context and improves coverage across multiple skills or topics without removing highly relevant evidence too aggressively.",
+    "expected_source_ids": ["rag-adv-016"],
+    "tags": ["RAG", "Diversity", "Retrieval"]
+  },
+  {
+    "id": "ragas-v2-015",
+    "category": "rag_advanced",
+    "difficulty": "hard",
+    "question_type": "single_hop",
+    "question": "What is HyDE in RAG and what trade-off does it introduce?",
+    "ground_truth": "HyDE generates a hypothetical answer or document from the query, embeds that text for retrieval, and can improve alignment for short queries but adds latency, cost, and possible query drift.",
+    "expected_source_ids": ["rag-adv-017"],
+    "tags": ["RAG", "HyDE", "Query Expansion"]
+  },
+  {
+    "id": "ragas-v2-016",
+    "category": "rag_advanced",
+    "difficulty": "hard",
+    "question_type": "single_hop",
+    "question": "What is corrective RAG trying to solve?",
+    "ground_truth": "Corrective RAG detects insufficient or irrelevant retrieved context and can trigger query rewriting, broader retrieval, web search, or fallback behavior based on a relevance or confidence judgment.",
+    "expected_source_ids": ["rag-adv-018"],
+    "tags": ["RAG", "Corrective RAG", "Reliability"]
+  },
+  {
+    "id": "ragas-v2-017",
+    "category": "rag_generation",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you reduce hallucination in a RAG-based answer generator?",
+    "ground_truth": "Reduce hallucination by retrieving sufficient relevant context, instructing the model to use only provided sources, tracking citations or source ids, using faithfulness checks, and improving chunking, query rewriting, and reranking when context is weak.",
+    "expected_source_ids": ["rag-adv-019"],
+    "tags": ["RAG", "Hallucination", "Faithfulness"]
+  },
+  {
+    "id": "ragas-v2-018",
+    "category": "rag_production",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you migrate from a small RAG corpus to a larger production knowledge base?",
+    "ground_truth": "Use stable document and chunk ids, separate offline indexing from online retrieval, track index and embedding versions, add incremental indexing and deletion support, and run retrieval evaluation after corpus updates.",
+    "expected_source_ids": ["rag-adv-020"],
+    "tags": ["RAG", "Scalability", "Indexing"]
+  },
+  {
+    "id": "ragas-v2-019",
+    "category": "rag_production",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How should metadata filters be handled in hybrid RAG retrieval?",
+    "ground_truth": "Metadata filters constrain retrieval by fields such as category, difficulty, user, or document type, improve precision when intent is clear, can reduce recall if too strict, and should apply compatibly to vector and BM25 branches.",
+    "expected_source_ids": ["rag-adv-021"],
+    "tags": ["RAG", "Metadata Filtering", "Vector Database"]
+  },
+  {
+    "id": "ragas-v2-020",
+    "category": "rag_production",
+    "difficulty": "easy",
+    "question_type": "single_hop",
+    "question": "What role do embeddings play in RAG and how would you choose an embedding model?",
+    "ground_truth": "Embeddings map text into vectors for semantic similarity search, and the model should fit language, domain, latency, cost, and dimension needs; embedding changes require reindexing or index versioning.",
+    "expected_source_ids": ["rag-adv-022"],
+    "tags": ["RAG", "Embedding", "Model Selection"]
+  },
+  {
+    "id": "ragas-v2-021",
+    "category": "rag_production",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you design incremental indexing for a RAG system?",
+    "ground_truth": "Incremental indexing should compute stable ids, detect added, changed, and deleted records, re-embed only changed chunks, upsert changed chunks, remove obsolete chunks, and record index version metadata.",
+    "expected_source_ids": ["rag-adv-023"],
+    "tags": ["RAG", "Indexing", "Data Pipeline"]
+  },
+  {
+    "id": "ragas-v2-022",
+    "category": "ai_interview_architecture",
+    "difficulty": "medium",
+    "question_type": "multi_hop",
+    "question": "How would you design an AI mock interview system from a JD and resume?",
+    "ground_truth": "Parse the JD into a weighted skill matrix, parse the resume into projects and skills, retrieve relevant interview references with RAG, use structured output schemas, and maintain graph state across analysis, planning, interviewing, evaluation, and reporting.",
+    "expected_source_ids": ["aie-001"],
+    "tags": ["LLM Application", "System Design", "RAG", "Resume Matching"]
+  },
+  {
+    "id": "ragas-v2-023",
+    "category": "ai_interview_risk",
+    "difficulty": "medium",
+    "question_type": "multi_hop",
+    "question": "What risks arise when LLMs generate interview questions automatically?",
+    "ground_truth": "Generated questions may drift from the JD or candidate background, invent resume details, have inconsistent difficulty, or rely on poor sources; mitigations include structured prompts, RAG references, source tracking, and offline evaluation.",
+    "expected_source_ids": ["aie-002"],
+    "tags": ["LLM Reliability", "Prompt Engineering", "Evaluation"]
+  },
+  {
+    "id": "ragas-v2-024",
+    "category": "fastapi_websocket",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you design streaming responses for an AI interview chat service?",
+    "ground_truth": "Use WebSocket or SSE depending on bidirectional requirements, stream partial LLM tokens to reduce perceived latency, persist session state outside the connection, and handle disconnects, retries, and idempotent messages.",
+    "expected_source_ids": ["aie-003"],
+    "tags": ["FastAPI", "WebSocket", "Streaming", "LLM Application"]
+  },
+  {
+    "id": "ragas-v2-025",
+    "category": "structured_output",
+    "difficulty": "easy",
+    "question_type": "single_hop",
+    "question": "How would you implement structured output parsing for LLM-generated interview plans?",
+    "ground_truth": "Define strict Pydantic models, constrain fields such as difficulty and source ids, validate model output before saving graph state, and retry or repair invalid outputs using schema errors.",
+    "expected_source_ids": ["aie-004"],
+    "tags": ["Structured Output", "Pydantic", "LLM Application"]
+  },
+  {
+    "id": "ragas-v2-026",
+    "category": "langgraph_agent",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How can LangGraph model a multi-stage AI interview pipeline?",
+    "ground_truth": "LangGraph can represent JD analysis, resume analysis, question planning, interviewing, evaluation, and reporting as graph nodes that pass typed shared state through conditional edges and reducers.",
+    "expected_source_ids": ["aie-007"],
+    "tags": ["LangGraph", "State Machine", "Agent Architecture"]
+  },
+  {
+    "id": "ragas-v2-027",
+    "category": "session_management",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you design session management for multiple concurrent AI interviews?",
+    "ground_truth": "Use session ids to isolate state, store durable state in a database or checkpoint store, use Redis for short-lived metadata and rate limiting, avoid mutable globals, and define cleanup rules for abandoned sessions and uploads.",
+    "expected_source_ids": ["aie-008"],
+    "tags": ["Backend", "Concurrency", "Session Management", "FastAPI"]
+  },
+  {
+    "id": "ragas-v2-028",
+    "category": "security",
+    "difficulty": "hard",
+    "question_type": "single_hop",
+    "question": "How would you prevent prompt injection from a candidate resume or job description?",
+    "ground_truth": "Treat JD and resume text as untrusted data, isolate it with clear boundaries, extract structured facts, validate generated outputs against schema and source constraints, and prevent uploaded text from overriding system instructions.",
+    "expected_source_ids": ["aie-011"],
+    "tags": ["Prompt Injection", "Security", "LLM Application"]
+  },
+  {
+    "id": "ragas-v2-029",
+    "category": "resume_parsing",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you handle resume PDF parsing quality in an AI interview product?",
+    "ground_truth": "Use deterministic extraction before LLM normalization, detect empty pages, garbled text, tables, and missing sections, return parse warnings and confidence signals, keep original snippets, and allow manual fallback.",
+    "expected_source_ids": ["aie-012"],
+    "tags": ["Resume Parsing", "Data Quality", "LLM Application"]
+  },
+  {
+    "id": "ragas-v2-030",
+    "category": "llm_ops",
+    "difficulty": "medium",
+    "question_type": "single_hop",
+    "question": "How would you add observability to an AI interview backend?",
+    "ground_truth": "Log request ids, session ids, graph node names, model names, latency, token usage, retrieval queries, source ids, scores, and structured errors for parsing, retrieval, LLM calls, and WebSocket events.",
+    "expected_source_ids": ["aie-009"],
+    "tags": ["Observability", "Tracing", "LLM Ops"]
+  }
+]

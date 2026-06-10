@@ -144,8 +144,20 @@ async def _generate_grounded_answer(question: str, contexts: list[str]) -> str:
                 "`Reference points`, `Question or topic`, and metadata fields over "
                 "general knowledge. Do not add best practices, examples, risks, or "
                 "implementation details unless they appear in the contexts. If a "
-                "detail is not supported, omit it. Keep the answer concise, using at "
-                "most 4 bullets or one short paragraph."
+                "detail is not supported, omit it. Start with a direct answer that "
+                "uses the key terms from the question; do not start with phrases "
+                "like `Based on the retrieved contexts`. Do not cite context numbers "
+                "or mention that you are using retrieved contexts. For simple "
+                "definition or explanation questions, prefer one short paragraph. "
+                "For comparison, distinction, multi-hop, or debugging questions, do "
+                "not collapse the answer into one sentence; use 2-4 concise bullets "
+                "or short sentences and cover each supported side of the distinction "
+                "with retrieved evidence. For debugging questions, include "
+                "retrieval-side signals such as query-document alignment, chunking, "
+                "top-k candidates, scores, source metadata, and context coverage "
+                "when they appear in the contexts; include generation-side signals "
+                "such as ignored evidence or unsupported claims when they appear in "
+                "the contexts."
             ),
         },
         {

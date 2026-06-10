@@ -303,12 +303,14 @@ npm run build
 
 ## 文档
 
+- [项目展示总结](docs/project_showcase_summary.md)
 - [架构文档](docs/architecture.md)
 - [部署指南](DEPLOYMENT.md)
 - [FastAPI / WebSocket API Contract](docs/fastapi_websocket_contract.md)
 - [Redis 运行时增强设计](docs/redis_design.md)
 - [RAG Design Notes](docs/rag_design.md)
 - [RAG Evaluation Report](docs/rag_eval_report.md)
+- [RAGAS Evaluation Upgrade](docs/ragas_evaluation_upgrade.md)
 - [评分 Rubric](docs/scoring_rubric.md)
 
 ## License
