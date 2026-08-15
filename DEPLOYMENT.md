@@ -31,6 +31,9 @@ EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDING_MODEL=text-embedding-v3
 
 CHROMA_PERSIST_DIR=./chroma_data
+POSTGRES_DB=ai_mock_interview
+POSTGRES_USER=ai_mock
+POSTGRES_PASSWORD=replace-with-a-random-url-safe-password
 CHECKPOINTER_BACKEND=postgres
 POSTGRES_URL=postgresql://ai_mock:ai_mock@postgres:5432/ai_mock_interview
 SESSION_STORE_BACKEND=postgres
