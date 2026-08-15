@@ -1,6 +1,6 @@
 # Redis 运行时增强设计
 
-本项目的 Redis 不是替代原有核心存储，而是放在 FastAPI 和 LangGraph 面试流程外侧的运行时增强层。核心状态仍然由 `SessionManager`、LangGraph checkpoint、SQLite memory 和 ChromaDB/RAG 负责；Redis 负责短生命周期、高并发、可过期的后端能力。
+本项目的 Redis 不是替代原有核心存储，而是放在 FastAPI 和 LangGraph 面试流程外侧的运行时增强层。生产环境的核心状态由 `SessionManager`、PostgreSQL LangGraph checkpoint、PostgreSQL/pgvector memory 和 ChromaDB/RAG 题库索引负责；本地 Python 运行可使用 MemorySaver、SQLite 和 ChromaDB fallback。Redis 负责短生命周期、高并发、可过期的后端能力。
 
 ## 设计目标
 

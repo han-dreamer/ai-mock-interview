@@ -6,9 +6,9 @@
 
 - **JD + 简历驱动出题**：解析岗位要求和候选人经历，围绕项目经验、岗位技能缺口和历史弱项生成个性化问题。
 - **双模式面试流程**：支持 `practice` 练习模式和 `professional` 专业模式；专业模式包含一面技术深度和二面技术广度。
-- **LangGraph 多 Agent 编排**：使用 `StateGraph`、条件边、`interrupt_before` 和 checkpoint 管理可中断、可恢复的人机协同面试流程。
+- **LangGraph 多 Agent 编排**：使用 `StateGraph`、条件边、`interrupt_before` 和 PostgreSQL checkpoint 管理可中断、可恢复的人机协同面试流程；本地开发可回退到 `MemorySaver`。
 - **高级 RAG 检索链路**：基于 ChromaDB、Embedding、BM25、RRF、多查询、元数据重排、parent-child chunking 和 parent hydration 构建题库检索。
-- **长期记忆系统**：使用 SQLite 保存结构化记忆，使用 ChromaDB 建立语义记忆索引，跨会话记录用户画像、简历项目、弱项技能和面试反思。
+- **长期记忆系统**：生产环境使用 PostgreSQL 保存结构化记忆，并通过 pgvector 建立语义记忆索引；本地开发保留 SQLite + ChromaDB fallback，跨会话记录用户画像、简历项目、弱项技能和面试反思。
 - **实时工程化交互**：FastAPI 同时提供 REST 与 WebSocket API，React/Vite 前端支持 JD 输入、简历上传、实时答题、追问、提前结束和报告展示。
 - **Redis 运行增强**：Docker Compose 环境中启用 Redis，用于接口限流、回答并发锁、会话/报告缓存和 WebSocket 在线状态。
 - **可量化评估**：提供 retrieval golden evaluation 与 RAGAS 生成评估，用指标衡量 RAG 召回、上下文质量和生成 groundedness。
@@ -19,16 +19,16 @@
 |---|---|
 | 前端 | React 19 + Vite 6 + TypeScript + lucide-react |
 | 后端 API | FastAPI + REST + WebSocket + CORS middleware |
-| Agent 编排 | LangGraph StateGraph + 条件边 + interrupt + MemorySaver checkpoint |
+| Agent 编排 | LangGraph StateGraph + 条件边 + interrupt + PostgreSQL checkpoint（本地 fallback：MemorySaver） |
 | LLM 接入 | OpenAI-compatible SDK，支持 Chat、Structured Output、Streaming、Vision |
 | 数据建模 | Pydantic v2 + Pydantic Settings |
 | RAG 检索 | ChromaDB + OpenAI-compatible Embedding + BM25 + RRF |
 | RAG 优化 | parent-child chunking、multi-query、metadata rerank、parent hydration、diversify |
-| 长期记忆 | SQLite + ChromaDB semantic memory |
+| 长期记忆 | PostgreSQL + pgvector（生产主路径）；SQLite + ChromaDB（本地 fallback） |
 | 运行增强 | Redis rate limit、session cache、report cache、WebSocket presence、answer lock |
 | 简历解析 | pdfplumber + Vision OCR fallback + link extraction + resume-JD matching |
 | 评估测试 | pytest、pytest-asyncio、retrieval golden set、RAGAS、datasets |
-| 部署 | Docker Compose + Nginx + Redis + FastAPI |
+| 部署 | Docker Compose + PostgreSQL/pgvector + Nginx + Redis + FastAPI |
 
 ## 架构概览
 
@@ -52,11 +52,22 @@ flowchart TD
 
     RAG --> ChromaQ["ChromaDB Question Index"]
     RAG --> BM25["BM25 Keyword Index"]
-    Memory --> SQLite["SQLite Structured Memory"]
-    Memory --> ChromaM["ChromaDB Memory Index"]
+    Graph --> Checkpoint["PostgreSQL LangGraph Checkpoint"]
+    Session --> SessionDB["PostgreSQL Session Store"]
+    Memory --> PGMemory["PostgreSQL + pgvector Memory"]
+    Memory -. local fallback .-> LocalMemory["SQLite + ChromaDB"]
     Session --> Redis["Redis Runtime Layer"]
     Graph --> LLM["OpenAI-compatible LLM / Embedding / Vision"]
 ```
+
+### 持久化配置
+
+| 运行方式 | LangGraph checkpoint | 业务会话 | 长期记忆 | 题库向量索引 |
+|---|---|---|---|---|
+| 本地 Python | `MemorySaver` | 进程内存 | SQLite + ChromaDB | ChromaDB |
+| Docker / 生产 | PostgreSQL `AsyncPostgresSaver` | PostgreSQL | PostgreSQL + pgvector | ChromaDB |
+
+这里的 ChromaDB 主要负责题库和知识库的 RAG 向量检索；生产环境的用户长期记忆语义索引已经切换为 PostgreSQL 的 pgvector，不应与题库向量库混淆。
 
 ## 面试流程
 
@@ -214,7 +225,7 @@ ai-mock-interview/
 │   ├── api/                 # FastAPI REST / WebSocket 路由
 │   ├── cache/               # Redis 限流、锁、缓存、在线状态
 │   ├── llm/                 # OpenAI-compatible LLM 客户端与 Prompt
-│   ├── memory/              # SQLite + ChromaDB 长期记忆
+│   ├── memory/              # PostgreSQL + pgvector 长期记忆（本地支持 SQLite + ChromaDB）
 │   ├── models/              # Pydantic 数据模型
 │   ├── rag/                 # RAG chunking、retrieval、rerank、RAGAS helper
 │   ├── resume/              # 简历解析、链接抽取、JD 匹配
@@ -231,7 +242,7 @@ ai-mock-interview/
 ├── scripts/                 # 初始化、评估、调试脚本
 ├── tests/                   # API、Memory、Redis、Resume 测试
 ├── Dockerfile               # FastAPI API 镜像
-├── docker-compose.yml       # Redis + API + Web 编排
+├── docker-compose.yml       # PostgreSQL + Redis + API + Web 编排
 └── requirements.txt
 ```
 
@@ -264,7 +275,7 @@ ws://localhost:8000/api/ws/interview/{session_id}
 {"type": "ping"}
 ```
 
-服务端消息包括 `status`、`question`、`follow_up`、`interview_end`、`report` 和 `error`。
+服务端消息包括 `status`、`question`、`follow_up`、`stream_chunk`、`interview_end`、`report` 和 `error`。
 
 ## RAG 与评估
 

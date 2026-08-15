@@ -1,8 +1,11 @@
 # Deployment Guide
 
-This project now has three deployable parts:
+This project now has four deployable parts:
 
-- `api`: FastAPI backend with REST, WebSocket, LangGraph, RAG, ChromaDB, and memory storage.
+- `postgres`: PostgreSQL 16 with the pgvector extension for LangGraph checkpoints,
+  business session metadata, and durable long-term memory.
+- `api`: FastAPI backend with REST, WebSocket, LangGraph, RAG, ChromaDB question
+  index, and PostgreSQL-backed memory.
 - `web`: React/Vite browser client, built into static files and served by Nginx.
 - `redis`: Optional runtime enhancement layer for rate limiting, answer locks,
   WebSocket presence, and lightweight session/report cache.
@@ -28,7 +31,11 @@ EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDING_MODEL=text-embedding-v3
 
 CHROMA_PERSIST_DIR=./chroma_data
-MEMORY_DB_PATH=./memory_data/memory.db
+CHECKPOINTER_BACKEND=postgres
+POSTGRES_URL=postgresql://ai_mock:ai_mock@postgres:5432/ai_mock_interview
+SESSION_STORE_BACKEND=postgres
+MEMORY_STORE_BACKEND=postgres
+MEMORY_VECTOR_BACKEND=pgvector
 UPLOAD_DIR=./uploads
 EXPORT_DIR=./exports
 
@@ -171,23 +178,31 @@ uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 
 For platforms like Render that inject `PORT`, no extra Dockerfile change is needed.
 
-Important persistent paths:
+Important API-container paths:
 
 ```text
 /app/chroma_data
-/app/memory_data
 /app/uploads
 /app/exports
 ```
 
-If your platform provides one persistent disk, mount it and point app data there:
+`/app/chroma_data` stores the ChromaDB question-bank index. PostgreSQL data is
+stored in the PostgreSQL service volume or an external managed PostgreSQL
+instance; it is the durable source for checkpoints, sessions, and long-term
+memory.
+
+If your platform provides one persistent disk for API-side files, mount it and
+point these paths there:
 
 ```env
 CHROMA_PERSIST_DIR=/data/chroma_data
-MEMORY_DB_PATH=/data/memory_data/memory.db
 UPLOAD_DIR=/data/uploads
 EXPORT_DIR=/data/exports
 ```
+
+For a managed PostgreSQL deployment, set `POSTGRES_URL` to the managed
+database connection string and keep the three PostgreSQL backend variables
+enabled.
 
 ## 5. VPS Deployment With Docker Compose
 
@@ -220,9 +235,9 @@ http://127.0.0.1:8000/docs
 The compose file persists these host directories:
 
 ```text
+./postgres_data
 ./data
 ./chroma_data
-./memory_data
 ./redis_data
 ./uploads
 ./exports
@@ -230,7 +245,8 @@ The compose file persists these host directories:
 
 `redis_data` stores Redis append-only persistence for runtime cache data. The
 application treats Redis as an enhancement layer, so Redis failures do not erase
-the authoritative interview memory or vector store.
+the authoritative PostgreSQL session/checkpoint/memory data or the ChromaDB
+question-bank index.
 
 The API service is deliberately bound to `127.0.0.1` on the VPS. Public users
 should enter through the `web` service, which proxies `/api` and WebSocket

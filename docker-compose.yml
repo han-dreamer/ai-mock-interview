@@ -45,7 +45,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./chroma_data:/app/chroma_data
-      - ./memory_data:/app/memory_data
       - ./uploads:/app/uploads
       - ./exports:/app/exports
     depends_on:

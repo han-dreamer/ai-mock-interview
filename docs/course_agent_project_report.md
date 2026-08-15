@@ -44,11 +44,15 @@ flowchart TD
     Agents --> RAG["RAG 题库检索"]
     Agents --> Memory["长期记忆系统"]
     RAG --> ChromaQ["ChromaDB 题库向量库"]
-    Memory --> SQLite["SQLite 结构化记忆"]
-    Memory --> ChromaM["ChromaDB 记忆向量索引"]
+    Graph --> Checkpoint["PostgreSQL LangGraph Checkpoint"]
+    Session --> SessionDB["PostgreSQL Session Store"]
+    Memory --> PGMemory["PostgreSQL + pgvector 记忆存储"]
+    Memory -. 本地 fallback .-> LocalMemory["SQLite + ChromaDB"]
     Session --> Redis["Redis 运行时增强"]
     Eval["RAG / RAGAS 评估脚本"] --> RAG
 ```
+
+Docker/生产环境中，PostgreSQL 负责 LangGraph checkpoint、业务会话和长期记忆持久化；pgvector 负责长期记忆的语义索引。ChromaDB 仍用于题库和知识库的 RAG 向量检索。本地 Python 开发可使用 MemorySaver、SQLite 和 ChromaDB fallback。
 
 从整体上看，用户通过前端或 API 创建面试会话，上传 JD 和简历。后端创建会话后，由 `SessionManager` 调用 LangGraph 工作流。LangGraph 内部不同 Agent 节点按照状态机执行：先分析 JD 和简历，再结合 RAG 和长期记忆规划问题，之后进入面试循环，根据用户回答决定追问、换题或结束，最后生成结构化报告。
 
@@ -66,7 +70,7 @@ Agent 编排使用 `LangGraph`。相比普通链式调用，LangGraph 更适合�
 
 RAG 检索使用 `ChromaDB`、向量检索、`BM25` 和 RRF 融合。题库和知识库会被切分后写入 ChromaDB，在线出题时根据 JD、简历和历史表现进行检索。
 
-长期记忆使用 `SQLite` 和 `ChromaDB`。SQLite 保存结构化记忆，ChromaDB 保存语义索引，用于跨面试会话召回用户历史弱项和项目记忆。
+长期记忆在 Docker/生产环境使用 `PostgreSQL` 和 `pgvector`。PostgreSQL 保存结构化记忆，pgvector 保存语义索引，用于跨面试会话召回用户历史弱项和项目记忆；本地 Python 开发保留 `SQLite` + `ChromaDB` fallback。
 
 前端主界面使用 `React + Vite + TypeScript`，通过 REST API 创建会话、上传简历，并通过 WebSocket 完成实时面试对话。早期的 `Gradio` 界面仍保留为内部调试和快速演示工具。
 
@@ -247,8 +251,9 @@ flowchart TD
 
 存储上使用两部分：
 
-- `SQLite`：保存结构化记忆，例如技能名称、平均分、最近得分、弱项、证据 id 等。
-- `ChromaDB`：保存记忆内容的语义索引，用于根据当前 JD 和简历召回相关历史记忆。
+- `PostgreSQL`：保存结构化记忆，例如技能名称、平均分、最近得分、弱项、证据 id 等。
+- `pgvector`：保存记忆内容的语义索引，用于根据当前 JD 和简历召回相关历史记忆。
+- 本地开发 fallback：使用 `SQLite` 保存结构化记忆，使用 `ChromaDB` 保存语义索引。
 
 在新面试开始时，系统会根据 `user_id` 召回长期记忆，并格式化成 memory context 注入 Question Planner。这样系统可以优先追问用户过去表现较弱的技能，也可以避免重复问已经掌握较好的内容。
 

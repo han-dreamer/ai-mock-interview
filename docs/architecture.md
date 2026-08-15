@@ -2,7 +2,7 @@
 
 ## 1. 系统总览
 
-AI Mock Interview Agent 是一个 JD 与简历驱动的模拟面试系统。当前实现采用“React 前端 + FastAPI API + SessionManager + LangGraph 工作流 + RAG/Memory/Redis 支撑层”的架构。
+AI Mock Interview Agent 是一个 JD 与简历驱动的模拟面试系统。当前实现采用“React 前端 + FastAPI API + SessionManager + LangGraph 工作流 + RAG/Memory/PostgreSQL/Redis 支撑层”的架构。Docker/生产环境中，PostgreSQL 是会话、checkpoint 和长期记忆的持久化主存储；本地 Python 运行保留轻量级 fallback。
 
 系统的核心目标不是一次性生成题单，而是把真实面试拆成可中断、可恢复、可追问、可评估的状态机流程：
 
@@ -28,11 +28,22 @@ flowchart TD
 
     RAG --> ChromaQ["ChromaDB Question Index"]
     RAG --> BM25["BM25 Index"]
-    Memory --> SQLite["SQLite Memory Store"]
-    Memory --> ChromaM["ChromaDB Semantic Memory"]
+    Graph --> Checkpoint["PostgreSQL LangGraph Checkpoint"]
+    Session --> SessionDB["PostgreSQL Session Store"]
+    Memory --> PGMemory["PostgreSQL + pgvector Memory"]
+    Memory -. local fallback .-> LocalMemory["SQLite + ChromaDB"]
     Session --> Redis["Redis Runtime Enhancement"]
     Graph --> LLM["OpenAI-compatible LLM / Embedding / Vision"]
 ```
+
+### 持久化配置矩阵
+
+| 运行方式 | LangGraph checkpoint | 业务会话 | 长期记忆结构化存储 | 长期记忆语义索引 | 题库 RAG 向量索引 |
+|---|---|---|---|---|---|
+| 本地 Python | `MemorySaver` | 进程内存 | SQLite | ChromaDB | ChromaDB |
+| Docker / 生产 | `AsyncPostgresSaver` | PostgreSQL | PostgreSQL | pgvector | ChromaDB |
+
+题库 RAG 和长期记忆是两个不同的向量检索场景：前者继续使用 ChromaDB，后者在生产环境使用 PostgreSQL 的 pgvector。
 
 ## 2. 分层架构
 
@@ -41,12 +52,12 @@ flowchart TD
 | Web UI | `web/` | React/Vite 前端，负责 JD 输入、简历上传、WebSocket 实时对话、报告展示 |
 | API 层 | `app/api/` | FastAPI REST 与 WebSocket 路由，处理 session、answer、resume、report 等接口 |
 | 安全与运行增强 | `app/security.py`, `app/cache/` | JWT 鉴权、账号会话隔离、Redis 限流、回答锁、会话缓存、WebSocket presence |
-| 会话管理 | `app/services/session_manager.py` | 创建 session、驱动 LangGraph、管理 checkpoint、同步报告和状态 |
+| 会话管理 | `app/services/session_manager.py` | 创建 session、驱动 LangGraph、管理 PostgreSQL/MemorySaver checkpoint、同步报告和状态 |
 | Agent 工作流 | `app/agents/` | JD 分析、简历分析、出题、提问、追问、评估、双轮流转 |
 | RAG | `app/rag/` | 题库切分、向量检索、BM25、RRF、多查询、重排、parent hydration |
 | Memory | `app/memory/` | 用户画像、简历项目、答题 episode、技能弱项、会话反思 |
 | 数据模型 | `app/models/` | Pydantic 模型，约束 JD、简历、问题、回答评估、报告和 WS 协议 |
-| 部署 | `Dockerfile`, `web/Dockerfile`, `docker-compose.yml` | API、Web/Nginx、Redis 三服务部署 |
+| 部署 | `Dockerfile`, `web/Dockerfile`, `docker-compose.yml` | PostgreSQL、API、Web/Nginx、Redis 四服务部署 |
 
 ## 3. 前端与 API 通信
 
@@ -145,7 +156,7 @@ LangGraph 编译时使用：
 ```python
 graph.compile(
     interrupt_before=["assess_answer"],
-    checkpointer=MemorySaver(),
+    checkpointer=get_checkpointer(),
 )
 ```
 
@@ -158,7 +169,7 @@ graph.compile(
 5. `SessionManager` 通过 `graph.update_state()` 注入 `current_candidate_answer`。
 6. 图恢复执行，进入答案评估和条件路由。
 
-每个 session 使用独立的 LangGraph `thread_id=session_id`，因此同一个 WebSocket 断开后可以重新连接并恢复最近状态。
+`get_checkpointer()` 根据 `CHECKPOINTER_BACKEND` 返回 `AsyncPostgresSaver` 或本地 `MemorySaver`。Docker/生产环境使用 PostgreSQL checkpoint；每个 session 使用独立的 LangGraph `thread_id=session_id`，因此同一个 WebSocket 断开后可以重新连接并恢复最近状态。
 
 ## 6. 核心状态模型
 
@@ -267,10 +278,12 @@ interview state
 
 Memory 模块用于跨会话个性化。它不是短期聊天历史，而是用户级长期记忆。
 
-存储分两层：
+生产环境的长期记忆由 PostgreSQL 统一持久化：
 
-- SQLite：保存结构化 `MemoryItem` 和 `SkillMemory`。
-- ChromaDB：保存 MemoryItem 的语义向量索引。
+- PostgreSQL：保存结构化 `MemoryItem`、`SkillMemory` 以及用户级跨会话记忆。
+- pgvector：保存 `MemoryItem` 的语义向量索引，支持按用户和记忆类型过滤后进行相似度召回。
+
+本地 Python 开发默认使用 SQLite + ChromaDB fallback，便于不启动数据库服务时运行测试和调试。
 
 记忆类型：
 
@@ -298,7 +311,7 @@ user_id + JD + resume
 assessment
   -> save interview episode
   -> update skill memory
-  -> index memory item into ChromaDB
+  -> index memory item into pgvector（生产）/ ChromaDB（本地）
 ```
 
 面试结束后：
@@ -311,7 +324,7 @@ final report
 
 ## 10. Redis 运行时增强
 
-Redis 是增强层，不是核心持久化数据源。普通本地 Python 运行默认关闭 Redis；Docker Compose 中默认启用 Redis。
+Redis 是增强层，不是核心持久化数据源。普通本地 Python 运行默认关闭 Redis；Docker Compose 中默认启用 Redis。生产环境的核心面试状态和长期记忆由 PostgreSQL 负责，题库 RAG 向量索引由 ChromaDB 负责。
 
 Redis 当前承担：
 
@@ -394,9 +407,10 @@ python -m scripts.evaluate_ragas --variant full --answer-source generated --metr
 
 ## 14. 部署架构
 
-Docker Compose 包含三个服务：
+Docker Compose 包含四个服务：
 
 ```text
+postgres -> PostgreSQL + pgvector durable persistence
 web   -> React static build + Nginx reverse proxy
 api   -> FastAPI + LangGraph + RAG + Memory
 redis -> Redis 7 runtime enhancement layer
@@ -414,7 +428,7 @@ Nginx 负责：
 ```text
 ./data
 ./chroma_data
-./memory_data
+./postgres_data
 ./redis_data
 ./uploads
 ./exports
