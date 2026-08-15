@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from uuid import uuid4
 
 from app.agents.state import InterviewState
 from app.llm.client import get_llm_client
 from app.llm.prompts import ANSWER_ASSESSOR_SYSTEM, INTERVIEWER_SYSTEM
 from app.models.interview import AnswerAssessment, ChatMessage
+from app.streaming import emit_stream_event, streaming_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,84 @@ def _build_conversation_context(state: InterviewState) -> list[dict]:
     return msgs
 
 
+async def _generate_interviewer_text(
+    *,
+    messages: list[dict],
+    temperature: float,
+    kind: str,
+    question_index: int,
+    total_questions: int,
+    follow_up_number: int | None = None,
+    skill_tags: list[str] | None = None,
+    difficulty: str = "",
+) -> str:
+    """Generate interviewer text and optionally publish incremental chunks.
+
+    The graph node still returns one complete string. Streaming is only a
+    transport concern and is enabled by the WebSocket request through the
+    task-local stream sink.
+    """
+    llm = get_llm_client()
+    if not streaming_enabled():
+        return await llm.chat(messages=messages, temperature=temperature)
+
+    stream_id = uuid4().hex
+    metadata = {
+        "stream_id": stream_id,
+        "kind": kind,
+        "question_index": question_index,
+        "total_questions": total_questions,
+        "follow_up_number": follow_up_number,
+        "skill_tags": skill_tags or [],
+        "difficulty": difficulty,
+    }
+    await emit_stream_event({"event": "start", **metadata})
+
+    chunks: list[str] = []
+    try:
+        async for chunk in llm.chat_stream(messages=messages, temperature=temperature):
+            chunks.append(chunk)
+            await emit_stream_event(
+                {
+                    "event": "delta",
+                    "stream_id": stream_id,
+                    "kind": kind,
+                    "chunk": chunk,
+                    "done": False,
+                }
+            )
+    except Exception:
+        if chunks:
+            logger.exception("Streaming interviewer response failed after partial output")
+            raise
+
+        logger.warning("Streaming interviewer response failed before output; using chat fallback")
+        response = await llm.chat(messages=messages, temperature=temperature)
+        if response:
+            chunks.append(response)
+            await emit_stream_event(
+                {
+                    "event": "delta",
+                    "stream_id": stream_id,
+                    "kind": kind,
+                    "chunk": response,
+                    "done": False,
+                }
+            )
+
+    response = "".join(chunks)
+    await emit_stream_event(
+        {
+            "event": "end",
+            "stream_id": stream_id,
+            "kind": kind,
+            "content": response,
+            "done": True,
+        }
+    )
+    return response
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Node 1: Ask a question
 # ─────────────────────────────────────────────────────────────────────
@@ -46,7 +126,6 @@ async def ask_question(state: InterviewState) -> dict:
     if not question:
         return {"interview_complete": True}
 
-    llm = get_llm_client()
     max_follow_ups = state.get("max_follow_ups", 2)
     system_prompt = INTERVIEWER_SYSTEM.format(max_follow_ups=max_follow_ups)
 
@@ -62,9 +141,14 @@ async def ask_question(state: InterviewState) -> dict:
         ),
     })
 
-    response = await llm.chat(
+    response = await _generate_interviewer_text(
         messages=[{"role": "system", "content": system_prompt}] + conversation,
         temperature=0.7,
+        kind="question",
+        question_index=state.get("current_question_index", 0) + 1,
+        total_questions=len(state.get("question_plan", []) or []),
+        skill_tags=list(question.skill_tags),
+        difficulty=question.difficulty,
     )
 
     logger.info("Interviewer asks Q%d: %s", question.id, response[:80])
@@ -88,7 +172,6 @@ async def ask_follow_up(state: InterviewState) -> dict:
     assessments = state.get("assessments", [])
     latest_assessment = assessments[-1] if assessments else None
 
-    llm = get_llm_client()
     max_follow_ups = state.get("max_follow_ups", 2)
     system_prompt = INTERVIEWER_SYSTEM.format(max_follow_ups=max_follow_ups)
 
@@ -118,9 +201,13 @@ async def ask_follow_up(state: InterviewState) -> dict:
         ),
     })
 
-    response = await llm.chat(
+    response = await _generate_interviewer_text(
         messages=[{"role": "system", "content": system_prompt}] + conversation,
         temperature=0.7,
+        kind="follow_up",
+        question_index=state.get("current_question_index", 0) + 1,
+        total_questions=len(state.get("question_plan", []) or []),
+        follow_up_number=state.get("follow_up_count", 0) + 1,
     )
 
     logger.info("Interviewer follow-up #%d: %s", state.get("follow_up_count", 0) + 1, response[:80])

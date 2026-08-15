@@ -15,6 +15,7 @@ import logging
 from app.agents.jd_analyst import analyze_jd
 from app.agents.resume_analyst import analyze_resume
 from app.agents.state import InterviewState
+from app.streaming import emit_status_event
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ async def parallel_analyze(state: InterviewState) -> dict:
     Replaces the sequential analyze_resume → analyze_jd pipeline.
     """
     logger.info("Starting parallel analysis (resume + JD)...")
+    await emit_status_event("preparing_profile", "正在并行分析 JD 和简历。")
 
     resume_task = asyncio.create_task(analyze_resume(state))
     jd_task = asyncio.create_task(analyze_jd(state))
@@ -40,4 +42,5 @@ async def parallel_analyze(state: InterviewState) -> dict:
         bool(merged.get("resume_profile")),
         bool(merged.get("skill_matrix")),
     )
+    await emit_status_event("profile_ready", "JD 和简历分析完成，开始准备个性化题目。")
     return merged

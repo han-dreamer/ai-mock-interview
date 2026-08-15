@@ -100,6 +100,7 @@ export type ServerMessage =
       type: "status";
       stage: string;
       message: string;
+      sequence?: number | null;
     }
   | {
       type: "question";
@@ -129,8 +130,18 @@ export type ServerMessage =
     }
   | {
       type: "stream_chunk";
+      event: "start" | "delta" | "end";
+      stream_id: string;
+      kind: "question" | "follow_up";
       chunk: string;
+      content: string;
       done: boolean;
+      question_index: number;
+      total_questions: number;
+      follow_up_number?: number | null;
+      skill_tags: string[];
+      difficulty: string;
+      sequence?: number | null;
     };
 
 export interface ChatItem {
@@ -138,6 +149,7 @@ export interface ChatItem {
   role: "interviewer" | "candidate" | "system";
   content: string;
   meta?: string;
+  streaming?: boolean;
 }
 
 export interface CurrentTurn {

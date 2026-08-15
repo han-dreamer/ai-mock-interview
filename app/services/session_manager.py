@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Awaitable, Callable, Literal
 
 from langgraph.graph import END, StateGraph
 
@@ -45,8 +45,15 @@ from app.services.session_repository import (
     load_session_record,
     save_session_record,
 )
+from app.streaming import (
+    SessionEventBus,
+    reset_stream_sink,
+    set_stream_sink,
+)
 
 logger = logging.getLogger(__name__)
+
+StreamSink = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 @dataclass
@@ -67,6 +74,13 @@ class _SessionData:
     graph_started: bool = False
     last_state: dict[str, Any] = field(default_factory=dict)
     error_message: str | None = None
+    event_bus: SessionEventBus = field(default_factory=SessionEventBus)
+    start_task: asyncio.Task | None = None
+    answer_task: asyncio.Task | None = None
+    active_operation: Literal["start", "answer"] | None = None
+    active_answer_id: str | None = None
+    last_answer_id: str | None = None
+    last_answer_result: dict[str, Any] | None = None
 
 
 class SessionManager:
@@ -552,6 +566,104 @@ class SessionManager:
     def _config(self, session_id: str) -> dict:
         return {"configurable": {"thread_id": session_id}}
 
+    def subscribe_events(self, session_id: str) -> asyncio.Queue[dict[str, Any]]:
+        """Subscribe to live events for a session."""
+        data = self._sessions.get(session_id)
+        if not data:
+            raise ValueError(f"Session {session_id} not found")
+        return data.event_bus.subscribe()
+
+    def unsubscribe_events(
+        self,
+        session_id: str,
+        queue: asyncio.Queue[dict[str, Any]],
+    ) -> None:
+        data = self._sessions.get(session_id)
+        if data:
+            data.event_bus.unsubscribe(queue)
+
+    def has_active_operation(self, session_id: str) -> bool:
+        data = self._sessions.get(session_id)
+        if not data:
+            return False
+        return bool(
+            (data.start_task and not data.start_task.done())
+            or (data.answer_task and not data.answer_task.done())
+        )
+
+    def ensure_start_task(self, session_id: str) -> asyncio.Task:
+        """Start one background graph run for WebSocket consumers."""
+        data = self._sessions.get(session_id)
+        if not data:
+            raise ValueError(f"Session {session_id} not found")
+        if data.graph_started:
+            raise RuntimeError("Interview graph has already started")
+        if data.start_task and not data.start_task.done():
+            return data.start_task
+
+        data.active_operation = "start"
+
+        async def run() -> dict:
+            try:
+                return await self.start_interview_graph(
+                    session_id,
+                    stream_sink=data.event_bus.publish,
+                )
+            finally:
+                if data.active_operation == "start":
+                    data.active_operation = None
+
+        task = asyncio.create_task(run(), name=f"interview-start:{session_id}")
+        data.start_task = task
+        return task
+
+    def ensure_answer_task(
+        self,
+        session_id: str,
+        answer: str,
+        answer_id: str,
+    ) -> asyncio.Task:
+        """Submit one answer exactly once within the current process."""
+        data = self._sessions.get(session_id)
+        if not data:
+            raise ValueError(f"Session {session_id} not found")
+
+        if data.answer_task and not data.answer_task.done():
+            if data.active_answer_id == answer_id:
+                return data.answer_task
+            raise RuntimeError("Another answer is already being processed")
+
+        if data.last_answer_id == answer_id and data.last_answer_result is not None:
+            async def return_cached() -> dict[str, Any]:
+                return data.last_answer_result or {}
+
+            return asyncio.create_task(
+                return_cached(),
+                name=f"interview-answer-cached:{session_id}",
+            )
+
+        data.active_operation = "answer"
+        data.active_answer_id = answer_id
+
+        async def run() -> dict:
+            try:
+                result = await self.submit_answer(
+                    session_id,
+                    answer,
+                    stream_sink=data.event_bus.publish,
+                )
+                data.last_answer_id = answer_id
+                data.last_answer_result = result
+                return result
+            finally:
+                data.active_answer_id = None
+                if data.active_operation == "answer":
+                    data.active_operation = None
+
+        task = asyncio.create_task(run(), name=f"interview-answer:{session_id}")
+        data.answer_task = task
+        return task
+
     async def _persist_session(self, session_id: str) -> None:
         data = self._sessions.get(session_id)
         if not data:
@@ -581,7 +693,12 @@ class SessionManager:
         except RuntimeError:
             logger.debug("No running loop; skipped async persist scheduling for %s", session_id)
 
-    async def start_interview_graph(self, session_id: str) -> dict:
+    async def start_interview_graph(
+        self,
+        session_id: str,
+        *,
+        stream_sink: StreamSink | None = None,
+    ) -> dict:
         """Kick off the graph.
 
         Practice:     analyze_jd -> plan_questions -> ask_question -> interrupt
@@ -630,6 +747,7 @@ class SessionManager:
                 initial_state["resume_parse_result"] = data.resume_parse_result
 
             self.update_session_status(session_id, "analyzing")
+            stream_token = set_stream_sink(stream_sink)
             try:
                 result = await graph.ainvoke(initial_state, self._config(session_id))
                 data.graph_started = True
@@ -652,8 +770,16 @@ class SessionManager:
                 data.error_message = str(exc)
                 self.update_session_status(session_id, "failed")
                 raise
+            finally:
+                reset_stream_sink(stream_token)
 
-    async def submit_answer(self, session_id: str, answer: str) -> dict:
+    async def submit_answer(
+        self,
+        session_id: str,
+        answer: str,
+        *,
+        stream_sink: StreamSink | None = None,
+    ) -> dict:
         """Inject candidate answer and resume the graph."""
         data = self._sessions.get(session_id)
         if not data:
@@ -669,6 +795,7 @@ class SessionManager:
                 config = self._config(session_id)
 
                 self.update_session_status(session_id, "evaluating")
+                stream_token = set_stream_sink(stream_sink)
                 try:
                     if hasattr(graph, "aupdate_state"):
                         await graph.aupdate_state(config, {"current_candidate_answer": answer})
@@ -701,6 +828,8 @@ class SessionManager:
                     data.error_message = str(exc)
                     self.update_session_status(session_id, "failed")
                     raise
+                finally:
+                    reset_stream_sink(stream_token)
 
     async def stop_interview(self, session_id: str) -> dict:
         """Stop the interview early and generate a report with whatever has been answered.

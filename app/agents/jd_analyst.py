@@ -8,6 +8,7 @@ from app.agents.state import InterviewState
 from app.llm.client import get_llm_client
 from app.llm.prompts import JD_ANALYST_SYSTEM
 from app.models.jd import SkillMatrix
+from app.streaming import emit_status_event
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ async def analyze_jd(state: InterviewState) -> dict:
     """
     jd_text = state["jd_text"]
     logger.info("Analyzing JD (%d chars)...", len(jd_text))
+    await emit_status_event("analyzing_jd", "正在分析岗位 JD 和技能要求。")
 
     llm = get_llm_client()
     skill_matrix = await llm.chat_structured(
@@ -43,4 +45,8 @@ async def analyze_jd(state: InterviewState) -> dict:
             s.name, s.category, s.weight, s.is_required,
         )
 
+    await emit_status_event(
+        "jd_analyzed",
+        f"JD 分析完成，已提取 {len(skill_matrix.skills)} 项技能要求。",
+    )
     return {"skill_matrix": skill_matrix}

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -17,6 +20,7 @@ from app.models.ws_protocol import (
     ServerFollowUp,
     ServerInterviewEnd,
     ServerQuestion,
+    ServerQuestionStream,
     ServerReport,
     ServerStatus,
 )
@@ -26,6 +30,14 @@ from app.services.session_manager import get_session_manager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _supports_stream_sink(method: Any) -> bool:
+    """Keep WebSocket tests and legacy manager implementations compatible."""
+    try:
+        return "stream_sink" in inspect.signature(method).parameters
+    except (TypeError, ValueError):
+        return False
 
 
 def _dump(value: Any) -> Any:
@@ -114,8 +126,169 @@ async def _send_report_if_ready(websocket: WebSocket, session_id: str, state: di
     return True
 
 
-async def _ensure_started(websocket: WebSocket, session_id: str) -> dict | None:
+async def _forward_session_event(
+    websocket: WebSocket,
+    session_id: str,
+    tracker: dict[str, bool],
+    event: dict[str, Any],
+    *,
+    forward: bool = True,
+) -> None:
+    """Forward one queued event without letting transport failures kill Graph."""
+    payload = event.get("event", event)
+    if not isinstance(payload, dict):
+        return
+    sequence = event.get("sequence")
+
+    if payload.get("type") == "status":
+        if not forward or tracker.get("transport_failed"):
+            return
+        try:
+            await _send(
+                websocket,
+                ServerStatus(
+                    stage=payload.get("stage", "processing"),
+                    message=payload.get("message", ""),
+                    sequence=sequence,
+                ),
+            )
+        except Exception:
+            tracker["transport_failed"] = True
+            logger.warning("Status transport closed for session=%s", session_id)
+        return
+
+    if payload.get("event") == "start":
+        tracker["started"] = True
+    if payload.get("event") == "end":
+        tracker["completed"] = True
+
+    if not forward or tracker.get("transport_failed"):
+        return
+
+    try:
+        await _send(
+            websocket,
+            ServerQuestionStream(
+                **payload,
+                sequence=sequence,
+            ),
+        )
+        if payload.get("event") == "end":
+            tracker["forwarded_end"] = True
+    except Exception:
+        tracker["transport_failed"] = True
+        logger.warning("Question stream transport closed for session=%s", session_id)
+
+
+async def _wait_for_session_task(
+    websocket: WebSocket,
+    session_id: str,
+    manager,
+    task: asyncio.Task,
+    queue: asyncio.Queue[dict[str, Any]],
+    tracker: dict[str, bool],
+    *,
+    forward_events: bool = True,
+) -> dict:
+    """Wait for a background operation while forwarding its queued events."""
+    event_task: asyncio.Task | None = None
+    try:
+        while True:
+            if task.done():
+                while True:
+                    try:
+                        queued = queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
+                    await _forward_session_event(
+                        websocket,
+                        session_id,
+                        tracker,
+                        queued,
+                        forward=forward_events,
+                    )
+                return task.result()
+
+            event_task = asyncio.create_task(queue.get())
+            done, _pending = await asyncio.wait(
+                {task, event_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if event_task in done:
+                await _forward_session_event(
+                    websocket,
+                    session_id,
+                    tracker,
+                    event_task.result(),
+                    forward=forward_events,
+                )
+                event_task = None
+    finally:
+        if event_task and not event_task.done():
+            event_task.cancel()
+            await asyncio.gather(event_task, return_exceptions=True)
+        manager.unsubscribe_events(session_id, queue)
+
+
+async def _ensure_started_background(
+    websocket: WebSocket,
+    session_id: str,
+    stream_tracker: dict[str, bool],
+) -> dict | None:
+    """Start or join one background startup operation for a real SessionManager."""
     mgr = get_session_manager()
+    state = await mgr.get_last_state(session_id)
+    if mgr.has_graph_started(session_id) and state:
+        await _send(websocket, ServerStatus(stage="resumed", message="Interview session resumed."))
+        return state
+
+    already_running = mgr.has_active_operation(session_id)
+    await _send(
+        websocket,
+        ServerStatus(
+            stage="resumed" if already_running else "analyzing_jd",
+            message=(
+                "Interview preparation is already running; waiting for the current task."
+                if already_running
+                else "Analyzing JD and preparing questions."
+            ),
+        ),
+    )
+
+    queue = mgr.subscribe_events(session_id)
+    try:
+        task = mgr.ensure_start_task(session_id)
+        return await _wait_for_session_task(
+            websocket,
+            session_id,
+            mgr,
+            task,
+            queue,
+            stream_tracker,
+            forward_events=not already_running,
+        )
+    except Exception as exc:
+        logger.exception("Background graph start failed for %s", session_id)
+        try:
+            await _send(websocket, ServerError(message=f"Failed to start interview: {exc}"))
+        except Exception:
+            pass
+        return None
+
+
+async def _ensure_started(
+    websocket: WebSocket,
+    session_id: str,
+    stream_tracker: dict[str, bool] | None = None,
+) -> dict | None:
+    mgr = get_session_manager()
+    if hasattr(mgr, "ensure_start_task") and hasattr(mgr, "subscribe_events"):
+        return await _ensure_started_background(
+            websocket,
+            session_id,
+            stream_tracker or {"started": False, "completed": False},
+        )
+
     state = await mgr.get_last_state(session_id)
     if mgr.has_graph_started(session_id) and state:
         await _send(websocket, ServerStatus(stage="resumed", message="Interview session resumed."))
@@ -125,20 +298,57 @@ async def _ensure_started(websocket: WebSocket, session_id: str) -> dict | None:
         websocket,
         ServerStatus(stage="analyzing_jd", message="Analyzing JD and preparing questions."),
     )
+    tracker = stream_tracker or {"started": False, "completed": False}
+
+    async def stream_sink(event: dict[str, Any]) -> None:
+        if event.get("type") == "status":
+            if tracker.get("transport_failed"):
+                return
+            try:
+                await _send(
+                    websocket,
+                    ServerStatus(
+                        stage=event.get("stage", "processing"),
+                        message=event.get("message", ""),
+                    ),
+                )
+            except Exception:
+                tracker["transport_failed"] = True
+                logger.warning("Status transport closed for session=%s", session_id)
+            return
+
+        tracker["started"] = True
+        if event.get("event") == "end":
+            tracker["completed"] = True
+        if tracker.get("transport_failed"):
+            return
+        try:
+            await _send(websocket, ServerQuestionStream(**event))
+        except Exception:
+            tracker["transport_failed"] = True
+            logger.warning("Question stream transport closed for session=%s", session_id)
+
     try:
-        state = await mgr.start_interview_graph(session_id)
+        if _supports_stream_sink(mgr.start_interview_graph):
+            state = await mgr.start_interview_graph(
+                session_id,
+                stream_sink=stream_sink,
+            )
+        else:
+            state = await mgr.start_interview_graph(session_id)
     except Exception as exc:
         logger.exception("Graph start failed for %s", session_id)
         await _send(websocket, ServerError(message=f"Failed to start interview: {exc}"))
         return None
 
-    await _send(
-        websocket,
-        ServerStatus(
-            stage="questions_ready",
-            message=f"Prepared {len(state.get('question_plan', []) or [])} interview questions.",
-        ),
-    )
+    if not tracker["completed"]:
+        await _send(
+            websocket,
+            ServerStatus(
+                stage="questions_ready",
+                message=f"Prepared {len(state.get('question_plan', []) or [])} interview questions.",
+            ),
+        )
     return state
 
 
@@ -179,12 +389,16 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
     try:
         current_turn_delivered = False
-        state = await _ensure_started(websocket, session_id)
+        startup_stream = {"started": False, "completed": False}
+        state = await _ensure_started(websocket, session_id, startup_stream)
         if state is None:
             return
         if await _send_report_if_ready(websocket, session_id, state):
             return
-        current_turn_delivered = await _send_current_turn(websocket, state)
+        current_turn_delivered = (
+            startup_stream["completed"]
+            or await _send_current_turn(websocket, state)
+        )
 
         while True:
             raw = await websocket.receive_text()
@@ -205,13 +419,17 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
                 await refresh_online(session_id)
                 if current_turn_delivered:
                     continue
-                state = await _ensure_started(websocket, session_id)
+                startup_stream = {"started": False, "completed": False}
+                state = await _ensure_started(websocket, session_id, startup_stream)
                 report_sent = (
                     state is not None
                     and await _send_report_if_ready(websocket, session_id, state)
                 )
                 if state is not None and not report_sent and not current_turn_delivered:
-                    current_turn_delivered = await _send_current_turn(websocket, state)
+                    current_turn_delivered = (
+                        startup_stream["completed"]
+                        or await _send_current_turn(websocket, state)
+                    )
                 continue
 
             if msg_type in {"stop", "end_interview"}:
@@ -292,8 +510,87 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
                 ),
             )
 
+            current_turn_delivered = False
+            stream_tracker = {"started": False, "completed": False}
+
+            if hasattr(mgr, "ensure_answer_task") and hasattr(mgr, "subscribe_events"):
+                answer_id = str(msg.get("answer_id") or uuid4().hex)
+                already_running = mgr.has_active_operation(session_id)
+                queue = mgr.subscribe_events(session_id)
+                try:
+                    task = mgr.ensure_answer_task(
+                        session_id,
+                        answer_text,
+                        answer_id,
+                    )
+                    state = await _wait_for_session_task(
+                        websocket,
+                        session_id,
+                        mgr,
+                        task,
+                        queue,
+                        stream_tracker,
+                        forward_events=not already_running,
+                    )
+                except Exception as exc:
+                    logger.exception("Background answer processing failed for %s", session_id)
+                    await _send(
+                        websocket,
+                        ServerError(message=f"Processing error: {exc}"),
+                    )
+                    continue
+
+                if await _send_report_if_ready(websocket, session_id, state):
+                    break
+                current_turn_delivered = (
+                    stream_tracker.get("forwarded_end", False)
+                    or await _send_current_turn(websocket, state)
+                )
+                continue
+
+            async def stream_sink(event: dict[str, Any]) -> None:
+                if event.get("type") == "status":
+                    if stream_tracker.get("transport_failed"):
+                        return
+                    try:
+                        await _send(
+                            websocket,
+                            ServerStatus(
+                                stage=event.get("stage", "processing"),
+                                message=event.get("message", ""),
+                            ),
+                        )
+                    except Exception:
+                        stream_tracker["transport_failed"] = True
+                        logger.warning(
+                            "Status transport closed for session=%s",
+                            session_id,
+                        )
+                    return
+
+                stream_tracker["started"] = True
+                if event.get("event") == "end":
+                    stream_tracker["completed"] = True
+                if stream_tracker.get("transport_failed"):
+                    return
+                try:
+                    await _send(websocket, ServerQuestionStream(**event))
+                except Exception:
+                    stream_tracker["transport_failed"] = True
+                    logger.warning(
+                        "Question stream transport closed for session=%s",
+                        session_id,
+                    )
+
             try:
-                state = await mgr.submit_answer(session_id, answer_text)
+                if _supports_stream_sink(mgr.submit_answer):
+                    state = await mgr.submit_answer(
+                        session_id,
+                        answer_text,
+                        stream_sink=stream_sink,
+                    )
+                else:
+                    state = await mgr.submit_answer(session_id, answer_text)
             except Exception as exc:
                 logger.exception("Graph resume failed for %s", session_id)
                 await _send(websocket, ServerError(message=f"Processing error: {exc}"))
@@ -301,7 +598,10 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
             if await _send_report_if_ready(websocket, session_id, state):
                 break
-            current_turn_delivered = await _send_current_turn(websocket, state)
+            current_turn_delivered = (
+                stream_tracker["completed"]
+                or await _send_current_turn(websocket, state)
+            )
 
     except WebSocketDisconnect:
         logger.info("WS disconnected: session=%s", session_id)

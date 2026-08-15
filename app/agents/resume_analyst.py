@@ -11,6 +11,7 @@ from app.agents.state import InterviewState
 from app.llm.client import get_llm_client
 from app.llm.prompts import RESUME_ANALYST_SYSTEM
 from app.models.resume import ResumeLink, ResumeParseResult, ResumeProfile
+from app.streaming import emit_status_event
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,11 @@ async def analyze_resume(state: InterviewState) -> dict:
     )
     if not resume_text:
         logger.warning("No resume text provided, creating empty profile")
+        await emit_status_event("resume_analyzed", "未检测到简历内容，将使用 JD 生成问题。")
         return {"resume_profile": ResumeProfile()}
 
     logger.info("Analyzing resume (%d chars)...", len(resume_text))
+    await emit_status_event("analyzing_resume", "正在分析简历中的项目、技能和经历。")
 
     parse_context = ""
     if isinstance(parse_result, ResumeParseResult):
@@ -96,4 +99,8 @@ async def analyze_resume(state: InterviewState) -> dict:
         len(profile.experience),
     )
 
+    await emit_status_event(
+        "resume_analyzed",
+        f"简历分析完成，已识别 {len(profile.projects)} 个项目和 {len(profile.skills)} 项技能。",
+    )
     return {"resume_profile": profile}

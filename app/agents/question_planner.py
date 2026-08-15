@@ -30,6 +30,7 @@ from app.rag.query_builder import RetrievalPurpose, build_retrieval_queries
 from app.rag.reranker import rerank_results
 from app.rag.retriever import get_retriever
 from app.resume.matcher import match_resume_to_jd
+from app.streaming import emit_status_event
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,10 @@ async def _retrieve_reference_questions(
         purpose,
         [f"{q.purpose}:{q.text}" for q in queries],
     )
+    await emit_status_event(
+        "retrieving_questions",
+        f"正在从题库检索与 {purpose} 相关的参考问题。",
+    )
     retriever = get_retriever()
     retrieved = await retriever.retrieve_multi(
         queries,
@@ -109,12 +114,17 @@ async def _retrieve_reference_questions(
     )
     reranked = rerank_results(state, retrieved, purpose=purpose)
     hydrated = hydrate_parent_results(reranked, top_k=final_top_k + 6)
-    return diversify_results(
+    diversified = diversify_results(
         hydrated,
         top_k=final_top_k,
         max_per_category=6,
         max_per_difficulty=8,
     )
+    await emit_status_event(
+        "retrieval_complete",
+        f"题库检索完成，获得 {len(diversified)} 条参考问题。",
+    )
+    return diversified
 
 
 def _clean_question_sources(plan: QuestionPlan, retrieved: list) -> QuestionPlan:
@@ -141,6 +151,7 @@ async def plan_questions(state: InterviewState) -> dict:
     """
     skill_matrix = state["skill_matrix"]
     logger.info("Planning questions for %d skills...", len(skill_matrix.skills))
+    await emit_status_event("planning_questions", "正在结合技能矩阵和历史记忆规划面试题。")
 
     try:
         retrieved = await _retrieve_reference_questions(state, purpose="practice", final_top_k=15)
@@ -177,6 +188,10 @@ async def plan_questions(state: InterviewState) -> dict:
     for q in plan.questions:
         logger.debug("  Q%d [%s] %s", q.id, q.difficulty, q.content[:60])
 
+    await emit_status_event(
+        "questions_planned",
+        f"问题规划完成，共生成 {len(plan.questions)} 道题。",
+    )
     return {
         "question_plan": plan.questions,
         "current_question_index": 0,
@@ -258,6 +273,10 @@ async def plan_questions_with_resume(state: InterviewState) -> dict:
         len(skill_matrix.skills),
         len(resume_profile.projects) if resume_profile else 0,
     )
+    await emit_status_event(
+        "planning_questions",
+        "正在结合简历项目、JD 技能和历史表现规划深挖问题。",
+    )
 
     resume_context = ""
     resume_jd_match = None
@@ -313,6 +332,10 @@ async def plan_questions_with_resume(state: InterviewState) -> dict:
         len(plan.questions),
         plan.total_estimated_minutes,
     )
+    await emit_status_event(
+        "questions_planned",
+        f"项目深挖问题规划完成，共生成 {len(plan.questions)} 道题。",
+    )
 
     result = {
         "question_plan": plan.questions,
@@ -358,6 +381,7 @@ async def plan_questions_round2(state: InterviewState) -> dict:
         "Planning Round 2 (breadth) questions for %d skills...",
         len(skill_matrix.skills),
     )
+    await emit_status_event("planning_questions", "正在根据第一轮表现规划技术广度问题。")
 
     try:
         retrieved = await _retrieve_reference_questions(state, purpose="round2", final_top_k=12)
@@ -394,6 +418,10 @@ async def plan_questions_round2(state: InterviewState) -> dict:
         "Round 2 question plan ready: %d questions, est. %d min",
         len(plan.questions),
         plan.total_estimated_minutes,
+    )
+    await emit_status_event(
+        "questions_planned",
+        f"第二轮问题规划完成，共生成 {len(plan.questions)} 道题。",
     )
 
     return {

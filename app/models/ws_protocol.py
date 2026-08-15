@@ -14,6 +14,7 @@ class ClientMessage(BaseModel):
 
     type: Literal["start", "start_interview", "answer", "stop", "end_interview", "ping"]
     content: str = ""
+    answer_id: str | None = None
 
 
 # ── Server → Client messages ────────────────────────────────────────
@@ -22,6 +23,7 @@ class ServerStatus(BaseModel):
     type: Literal["status"] = "status"
     stage: str
     message: str
+    sequence: int | None = None
 
 
 class ServerQuestion(BaseModel):
@@ -44,8 +46,18 @@ class ServerQuestionStream(BaseModel):
     """Incremental streaming chunk for a question/follow-up."""
 
     type: Literal["stream_chunk"] = "stream_chunk"
-    chunk: str
+    event: Literal["start", "delta", "end"] = "delta"
+    stream_id: str
+    kind: Literal["question", "follow_up"]
+    chunk: str = ""
+    content: str = ""
     done: bool = False
+    question_index: int = 0
+    total_questions: int = 0
+    follow_up_number: int | None = None
+    skill_tags: list[str] = Field(default_factory=list)
+    difficulty: str = ""
+    sequence: int | None = None
 
 
 class ServerReport(BaseModel):

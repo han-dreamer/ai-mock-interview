@@ -81,6 +81,15 @@ const difficultyName = (difficulty?: string) => {
 const statusText = (stage: string, fallback: string) => {
   const map: Record<string, string> = {
     analyzing_jd: "正在分析 JD、简历和历史记忆，准备个性化问题。",
+    analyzing_resume: "正在分析简历中的项目、技能和经历。",
+    resume_analyzed: "简历分析完成。",
+    preparing_profile: "正在并行分析 JD 和简历。",
+    profile_ready: "JD 和简历分析完成，开始准备个性化题目。",
+    jd_analyzed: "JD 分析完成。",
+    retrieving_questions: "正在从题库检索相关参考问题。",
+    retrieval_complete: "题库检索完成。",
+    planning_questions: "正在规划个性化面试问题。",
+    questions_planned: "个性化问题规划完成。",
     questions_ready: "问题已准备好，面试即将开始。",
     resumed: "已恢复到当前面试进度。",
     waiting: "正在等待下一轮问题。",
@@ -127,6 +136,7 @@ export function App() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const lastEventSequenceRef = useRef(0);
 
   useEffect(() => {
     checkHealth().then(setHealth).catch(() => setHealth(null));
@@ -240,6 +250,7 @@ export function App() {
         resumeFile,
       });
       setSessionId(response.session_id);
+      lastEventSequenceRef.current = 0;
       setResume(response.resume ?? null);
       setMessages([
         {
@@ -332,6 +343,7 @@ export function App() {
   function resumeHistoricalInterview(item: InterviewSessionSummary) {
     socketRef.current?.close();
     setSessionId(item.session_id);
+    lastEventSequenceRef.current = 0;
     setMode(item.mode);
     setResume(null);
     setMessages([
@@ -352,9 +364,83 @@ export function App() {
   }
 
   function handleServerMessage(payload: ServerMessage) {
+    const sequence = "sequence" in payload ? payload.sequence : null;
+    if (sequence != null) {
+      if (sequence <= lastEventSequenceRef.current) {
+        return;
+      }
+      lastEventSequenceRef.current = sequence;
+    }
+
     if (payload.type === "status") {
       setStage(payload.stage);
       setStatus(statusText(payload.stage, payload.message));
+      return;
+    }
+
+    if (payload.type === "stream_chunk") {
+      if (payload.event === "start") {
+        setIsAwaitingAnswer(false);
+        setCurrentTurn({
+          questionIndex: payload.question_index,
+          totalQuestions: payload.total_questions,
+          skillTags: payload.skill_tags,
+          difficulty: payload.difficulty,
+          followUpNumber: payload.follow_up_number ?? undefined,
+        });
+        setStatus(
+          payload.kind === "follow_up"
+            ? "Generating a follow-up question..."
+            : "Generating the next question...",
+        );
+        setMessages((items) => [
+          ...items,
+          {
+            id: payload.stream_id,
+            role: "interviewer",
+            content: "",
+            streaming: true,
+            meta:
+              payload.kind === "follow_up"
+                ? `Follow-up for question ${payload.question_index} #${
+                    payload.follow_up_number ?? 1
+                  }`
+                : `Question ${payload.question_index}/${payload.total_questions} · ${difficultyName(
+                    payload.difficulty,
+                  )}`,
+          },
+        ]);
+        return;
+      }
+
+      if (payload.event === "delta") {
+        setMessages((items) =>
+          items.map((item) =>
+            item.id === payload.stream_id
+              ? { ...item, content: item.content + payload.chunk }
+              : item,
+          ),
+        );
+        return;
+      }
+
+      setIsAwaitingAnswer(true);
+      setStatus(
+        payload.kind === "follow_up"
+          ? "Follow-up ready. Please answer."
+          : "Question ready. Please answer.",
+      );
+      setMessages((items) =>
+        items.map((item) =>
+          item.id === payload.stream_id
+            ? {
+                ...item,
+                content: payload.content || item.content,
+                streaming: false,
+              }
+            : item,
+        ),
+      );
       return;
     }
 
@@ -426,7 +512,13 @@ export function App() {
     event.preventDefault();
     const content = answer.trim();
     if (!content || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(JSON.stringify({ type: "answer", content }));
+    socketRef.current.send(
+      JSON.stringify({
+        type: "answer",
+        content,
+        answer_id: uid(),
+      }),
+    );
     setMessages((items) => [...items, { id: uid(), role: "candidate", content }]);
     setAnswer("");
     setIsAwaitingAnswer(false);
