@@ -30,6 +30,7 @@ from app.services.session_manager import get_session_manager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+WS_WAIT_HEARTBEAT_SECONDS = 15.0
 
 
 def _supports_stream_sink(method: Any) -> bool:
@@ -212,8 +213,26 @@ async def _wait_for_session_task(
             event_task = asyncio.create_task(queue.get())
             done, _pending = await asyncio.wait(
                 {task, event_task},
+                timeout=WS_WAIT_HEARTBEAT_SECONDS,
                 return_when=asyncio.FIRST_COMPLETED,
             )
+            if not done:
+                if forward_events and not tracker.get("transport_failed"):
+                    try:
+                        await _send(
+                            websocket,
+                            ServerStatus(
+                                stage="processing",
+                                message="正在生成面试题，请稍候。",
+                            ),
+                        )
+                    except Exception:
+                        tracker["transport_failed"] = True
+                        logger.info(
+                            "WS heartbeat transport closed for session=%s",
+                            session_id,
+                        )
+                continue
             if event_task in done:
                 await _forward_session_event(
                     websocket,
@@ -605,6 +624,11 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
     except WebSocketDisconnect:
         logger.info("WS disconnected: session=%s", session_id)
+    except RuntimeError as exc:
+        if "WebSocket is not connected" in str(exc):
+            logger.info("WS disconnected before handler completed: session=%s", session_id)
+        else:
+            logger.exception("Unexpected runtime error in WS session=%s", session_id)
     except Exception:
         logger.exception("Unexpected error in WS session=%s", session_id)
     finally:
