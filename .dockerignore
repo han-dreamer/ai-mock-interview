@@ -29,6 +29,7 @@ env/
 data/eval/results/
 
 chroma_data/
+redis_data/
 memory_data/
 postgres_data/
 uploads/
