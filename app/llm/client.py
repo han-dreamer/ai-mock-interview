@@ -159,9 +159,15 @@ class LLMClient:
             stream=True,
         )
         async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+            # Some OpenAI-compatible providers emit terminal/metadata chunks
+            # with an empty `choices` list or without textual delta content.
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            content = getattr(delta, "content", None) if delta else None
+            if content:
+                yield content
 
     # ------------------------------------------------------------------
     # Multi-modal vision completion
