@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
@@ -186,6 +188,40 @@ class FakeInterviewManager:
         return self.last_state
 
 
+class BackgroundResumeManager(FakeInterviewManager):
+    """Simulate reconnecting while the initial question stream finishes elsewhere."""
+
+    def __init__(self):
+        super().__init__()
+        self._start_task = None
+
+    async def get_last_state(self, _session_id):
+        return {} if self._start_task is None else self.last_state
+
+    def has_active_operation(self, _session_id):
+        return True
+
+    def subscribe_events(self, _session_id):
+        queue = asyncio.Queue()
+        queue.put_nowait({"event": "start", "stream_id": "old-stream", "kind": "question"})
+        queue.put_nowait({"event": "end", "stream_id": "old-stream", "kind": "question"})
+        return queue
+
+    def unsubscribe_events(self, _session_id, _queue):
+        return None
+
+    def ensure_start_task(self, session_id):
+        if self._start_task is None:
+
+            async def finish():
+                await asyncio.sleep(0)
+                await self.start_interview_graph(session_id)
+                return self.last_state
+
+            self._start_task = asyncio.create_task(finish())
+        return self._start_task
+
+
 def test_rest_interview_contract(monkeypatch):
     manager = FakeInterviewManager()
     monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
@@ -287,6 +323,24 @@ def test_websocket_interview_contract(monkeypatch):
         report = ws.receive_json()
         assert report["type"] == "report"
         assert report["data"]["grade"] == "B"
+
+
+def test_websocket_reconnect_delivers_question_after_background_stream(monkeypatch):
+    manager = BackgroundResumeManager()
+    session = manager.create_session(
+        session_id="ws-background-resume-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
+    )
+    monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
+    monkeypatch.setattr(interview_ws, "get_user_by_id", _fake_get_user_by_id)
+    client = TestClient(app)
+
+    with client.websocket_connect(_ws_url(session.session_id)) as ws:
+        assert ws.receive_json()["stage"] == "resumed"
+        question = ws.receive_json()
+        assert question["type"] == "question"
+        assert question["content"] == "Explain how your FastAPI layer drives the Agent workflow."
 
 
 def test_websocket_start_handshake_does_not_duplicate_question(monkeypatch):

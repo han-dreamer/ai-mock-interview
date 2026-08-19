@@ -343,6 +343,8 @@ async def _ensure_started(
             return
         try:
             await _send(websocket, ServerQuestionStream(**event))
+            if event.get("event") == "end":
+                tracker["forwarded_end"] = True
         except Exception:
             tracker["transport_failed"] = True
             logger.warning("Question stream transport closed for session=%s", session_id)
@@ -408,14 +410,14 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
     try:
         current_turn_delivered = False
-        startup_stream = {"started": False, "completed": False}
+        startup_stream = {"started": False, "completed": False, "forwarded_end": False}
         state = await _ensure_started(websocket, session_id, startup_stream)
         if state is None:
             return
         if await _send_report_if_ready(websocket, session_id, state):
             return
         current_turn_delivered = (
-            startup_stream["completed"]
+            startup_stream.get("forwarded_end", False)
             or await _send_current_turn(websocket, state)
         )
 
@@ -438,7 +440,7 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
                 await refresh_online(session_id)
                 if current_turn_delivered:
                     continue
-                startup_stream = {"started": False, "completed": False}
+                startup_stream = {"started": False, "completed": False, "forwarded_end": False}
                 state = await _ensure_started(websocket, session_id, startup_stream)
                 report_sent = (
                     state is not None
@@ -446,7 +448,7 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
                 )
                 if state is not None and not report_sent and not current_turn_delivered:
                     current_turn_delivered = (
-                        startup_stream["completed"]
+                        startup_stream.get("forwarded_end", False)
                         or await _send_current_turn(websocket, state)
                     )
                 continue

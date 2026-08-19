@@ -65,6 +65,7 @@ type AuthMode = "login" | "register";
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const AUTH_TOKEN_KEY = "ai-mock-auth-token";
+const RECONNECT_DELAYS_MS = [1000, 2000, 4000] as const;
 
 const modeName = (mode: InterviewMode) =>
   mode === "professional" ? "专业面试模式" : "练习模式";
@@ -135,6 +136,9 @@ export function App() {
   );
 
   const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectEnabledRef = useRef(false);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const lastEventSequenceRef = useRef(0);
 
@@ -183,7 +187,7 @@ export function App() {
   }, [messages, status]);
 
   useEffect(() => {
-    return () => socketRef.current?.close();
+    return () => closeSocket();
   }, []);
 
   const canStart = Boolean(currentUser && authToken && jdText.trim().length >= 10 && !isStarting);
@@ -226,8 +230,30 @@ export function App() {
     }
   }
 
+  function clearReconnectTimer() {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }
+
+  function disableAutoReconnect() {
+    reconnectEnabledRef.current = false;
+    reconnectAttemptsRef.current = 0;
+    clearReconnectTimer();
+  }
+
+  function closeSocket() {
+    disableAutoReconnect();
+    const socket = socketRef.current;
+    socketRef.current = null;
+    if (socket && socket.readyState < WebSocket.CLOSING) {
+      socket.close(1000, "client navigation");
+    }
+  }
+
   function handleLogout() {
-    socketRef.current?.close();
+    closeSocket();
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken("");
     setCurrentUser(null);
@@ -258,8 +284,8 @@ export function App() {
           role: "system",
           content:
             response.mode === "professional"
-              ? "专业面试已创建。系统会结合 JD、简历和长期记忆，先进行项目深挖，再进入技术广度考察。"
-              : "练习面试已创建。系统会根据 JD 生成问题，并在报告中给出参考答案和学习建议。",
+              ? "专业面试会话已创建，正在准备第一题。"
+              : "练习面试会话已创建，正在准备第一题。",
         },
       ]);
       setView("interview");
@@ -273,36 +299,88 @@ export function App() {
     }
   }
 
-  function connectSocket(id = sessionId) {
-    if (!id) return;
-    socketRef.current?.close();
+  function scheduleReconnect(id: string) {
+    if (
+      !reconnectEnabledRef.current ||
+      reconnectTimerRef.current !== null ||
+      reconnectAttemptsRef.current >= RECONNECT_DELAYS_MS.length
+    ) {
+      if (
+        reconnectEnabledRef.current &&
+        reconnectAttemptsRef.current >= RECONNECT_DELAYS_MS.length
+      ) {
+        setConnection("error");
+        setStatus("自动重连失败，请点击“重连”继续当前面试。");
+      }
+      return;
+    }
+
+    const attempt = reconnectAttemptsRef.current;
+    const delay = RECONNECT_DELAYS_MS[attempt];
+    reconnectAttemptsRef.current += 1;
+
+    setConnection("connecting");
+    setStatus(`连接中断，将在 ${delay / 1000}s 后自动重连（第 ${attempt + 1} 次）。`);
+
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      connectSocket(id, { resetAttempts: false });
+    }, delay);
+  }
+
+  function connectSocket(
+    id = sessionId,
+    options: { resetAttempts?: boolean } = { resetAttempts: true },
+  ) {
+    if (!id || !authToken) return;
+
+    if (options.resetAttempts) {
+      reconnectAttemptsRef.current = 0;
+    }
+
+    reconnectEnabledRef.current = true;
+    clearReconnectTimer();
+
+    const previousSocket = socketRef.current;
+    if (previousSocket && previousSocket.readyState < WebSocket.CLOSING) {
+      previousSocket.close(1000, "reconnecting");
+    }
     setConnection("connecting");
     setStatus("正在连接实时面试通道。");
     const ws = new WebSocket(websocketUrl(id, authToken));
     socketRef.current = ws;
 
     ws.onopen = () => {
+      if (socketRef.current !== ws) return;
+      reconnectAttemptsRef.current = 0;
+      setError("");
       setConnection("open");
       setStatus("连接成功，面试官正在准备第一轮问题。");
-      ws.send(JSON.stringify({ type: "start_interview" }));
     };
 
     ws.onmessage = (event) => {
+      if (socketRef.current !== ws) return;
       const payload = JSON.parse(event.data) as ServerMessage;
       handleServerMessage(payload);
     };
 
     ws.onerror = () => {
+      if (socketRef.current !== ws) return;
       setConnection("error");
       setError("WebSocket 连接异常，请稍后重连或检查后端服务。");
     };
 
     ws.onclose = () => {
+      if (socketRef.current !== ws) return;
+
+      socketRef.current = null;
       setConnection((prev) => (prev === "error" ? "error" : "closed"));
+      scheduleReconnect(id);
     };
   }
 
   async function openHistoryView() {
+    closeSocket();
     setView("history");
     await loadHistory();
   }
@@ -311,7 +389,7 @@ export function App() {
     setError("");
     try {
       const data = await getInterviewReport(authToken, item.session_id);
-      socketRef.current?.close();
+      closeSocket();
       setSessionId(item.session_id);
       setMode(item.mode);
       setMessages([]);
@@ -341,7 +419,7 @@ export function App() {
   }
 
   function resumeHistoricalInterview(item: InterviewSessionSummary) {
-    socketRef.current?.close();
+    closeSocket();
     setSessionId(item.session_id);
     lastEventSequenceRef.current = 0;
     setMode(item.mode);
@@ -494,6 +572,7 @@ export function App() {
     }
 
     if (payload.type === "report") {
+      disableAutoReconnect();
       setReport(payload.data);
       setStatus("报告已生成。");
       setStage("completed");
@@ -535,7 +614,7 @@ export function App() {
   }
 
   function resetAll() {
-    socketRef.current?.close();
+    closeSocket();
     setView("setup");
     setSessionId("");
     setMessages([]);
@@ -591,7 +670,14 @@ export function App() {
 
       {currentUser && (
         <nav className="view-tabs" aria-label="工作台视图">
-          <button className={view === "setup" ? "active" : ""} onClick={() => setView("setup")} type="button">
+          <button
+            className={view === "setup" ? "active" : ""}
+            onClick={() => {
+              closeSocket();
+              setView("setup");
+            }}
+            type="button"
+          >
             <Play size={15} />
             开始面试
           </button>
@@ -655,8 +741,11 @@ export function App() {
           transcriptRef={transcriptRef}
           onSubmitAnswer={submitAnswer}
           onStop={stopInterview}
-          onReconnect={() => connectSocket()}
-          onBack={() => setView("setup")}
+          onReconnect={() => connectSocket(sessionId, { resetAttempts: true })}
+          onBack={() => {
+            closeSocket();
+            setView("setup");
+          }}
         />
       )}
 
