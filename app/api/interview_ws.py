@@ -166,6 +166,12 @@ async def _forward_session_event(
     if not forward or tracker.get("transport_failed"):
         return
 
+    # An end event without a start event belongs to a previous transport (or
+    # was queued after reconnect). Let the checkpoint fallback send one complete
+    # question instead of exposing an unrenderable stream fragment.
+    if payload.get("event") == "end" and not tracker.get("forwarded_start"):
+        return
+
     try:
         await _send(
             websocket,
@@ -174,8 +180,11 @@ async def _forward_session_event(
                 sequence=sequence,
             ),
         )
+        if payload.get("event") == "start":
+            tracker["forwarded_start"] = True
         if payload.get("event") == "end":
-            tracker["forwarded_end"] = True
+            if tracker.get("forwarded_start"):
+                tracker["forwarded_end"] = True
     except Exception:
         tracker["transport_failed"] = True
         logger.warning("Question stream transport closed for session=%s", session_id)
@@ -343,8 +352,11 @@ async def _ensure_started(
             return
         try:
             await _send(websocket, ServerQuestionStream(**event))
+            if event.get("event") == "start":
+                tracker["forwarded_start"] = True
             if event.get("event") == "end":
-                tracker["forwarded_end"] = True
+                if tracker.get("forwarded_start"):
+                    tracker["forwarded_end"] = True
         except Exception:
             tracker["transport_failed"] = True
             logger.warning("Question stream transport closed for session=%s", session_id)

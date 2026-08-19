@@ -222,6 +222,29 @@ class BackgroundResumeManager(FakeInterviewManager):
         return self._start_task
 
 
+class EndOnlyStreamingManager(BackgroundResumeManager):
+    """Simulate a reconnect that receives only a queued stream end event."""
+
+    def has_active_operation(self, _session_id):
+        return False
+
+    def subscribe_events(self, _session_id):
+        queue = asyncio.Queue()
+        queue.put_nowait(
+            {
+                "event": {
+                    "event": "end",
+                    "stream_id": "stale-stream",
+                    "kind": "question",
+                    "content": "stale streamed question",
+                    "done": True,
+                },
+                "sequence": 2,
+            }
+        )
+        return queue
+
+
 def test_rest_interview_contract(monkeypatch):
     manager = FakeInterviewManager()
     monkeypatch.setattr(interview_rest, "get_session_manager", lambda: manager)
@@ -338,6 +361,24 @@ def test_websocket_reconnect_delivers_question_after_background_stream(monkeypat
 
     with client.websocket_connect(_ws_url(session.session_id)) as ws:
         assert ws.receive_json()["stage"] == "resumed"
+        question = ws.receive_json()
+        assert question["type"] == "question"
+        assert question["content"] == "Explain how your FastAPI layer drives the Agent workflow."
+
+
+def test_websocket_drops_orphan_stream_end_and_sends_complete_question(monkeypatch):
+    manager = EndOnlyStreamingManager()
+    session = manager.create_session(
+        session_id="ws-orphan-stream-end-session",
+        jd_text="Python FastAPI LangGraph AI application developer position",
+        user_id="user-1",
+    )
+    monkeypatch.setattr(interview_ws, "get_session_manager", lambda: manager)
+    monkeypatch.setattr(interview_ws, "get_user_by_id", _fake_get_user_by_id)
+    client = TestClient(app)
+
+    with client.websocket_connect(_ws_url(session.session_id)) as ws:
+        assert ws.receive_json()["stage"] == "analyzing_jd"
         question = ws.receive_json()
         assert question["type"] == "question"
         assert question["content"] == "Explain how your FastAPI layer drives the Agent workflow."

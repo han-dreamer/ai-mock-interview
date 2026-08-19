@@ -94,6 +94,28 @@ async def test_streaming_falls_back_to_chat_before_first_chunk(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_streaming_falls_back_to_chat_when_provider_returns_no_text(monkeypatch):
+    llm = FakeStreamingLLM([])
+    events: list[dict] = []
+
+    async def sink(event: dict) -> None:
+        events.append(event)
+
+    monkeypatch.setattr(interviewer, "get_llm_client", lambda: llm)
+    token = set_stream_sink(sink)
+    try:
+        result = await interviewer.ask_question(_state())
+    finally:
+        reset_stream_sink(token)
+
+    assert result["conversation_history"][0].content == "fallback question"
+    assert [event["event"] for event in events] == ["start", "delta", "end"]
+    assert events[1]["chunk"] == "fallback question"
+    assert events[-1]["content"] == "fallback question"
+    assert llm.chat_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_status_event_uses_the_same_transport_sink():
     events: list[dict] = []
 

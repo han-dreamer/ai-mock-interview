@@ -67,6 +67,14 @@ const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const AUTH_TOKEN_KEY = "ai-mock-auth-token";
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000] as const;
 
+function streamMessageMeta(payload: Extract<ServerMessage, { type: "stream_chunk" }>) {
+  return payload.kind === "follow_up"
+    ? `Follow-up for question ${payload.question_index} #${payload.follow_up_number ?? 1}`
+    : `Question ${payload.question_index}/${payload.total_questions} · ${difficultyName(
+        payload.difficulty,
+      )}`;
+}
+
 const modeName = (mode: InterviewMode) =>
   mode === "professional" ? "专业面试模式" : "练习模式";
 
@@ -94,7 +102,7 @@ const statusText = (stage: string, fallback: string) => {
     questions_ready: "问题已准备好，面试即将开始。",
     resumed: "已恢复到当前面试进度。",
     waiting: "正在等待下一轮问题。",
-    processing: "正在评估你的回答，并判断是否需要追问。",
+    processing: "正在处理面试流程，请稍候。",
     evaluating: "正在结束面试并生成评估报告。",
     pong: "连接正常。",
   };
@@ -457,8 +465,11 @@ export function App() {
     }
 
     if (payload.type === "stream_chunk") {
+      const streamMeta = streamMessageMeta(payload);
+
       if (payload.event === "start") {
         setIsAwaitingAnswer(false);
+        setStage("generating_question");
         setCurrentTurn({
           questionIndex: payload.question_index,
           totalQuestions: payload.total_questions,
@@ -468,62 +479,94 @@ export function App() {
         });
         setStatus(
           payload.kind === "follow_up"
-            ? "Generating a follow-up question..."
-            : "Generating the next question...",
+            ? "正在生成追问，请稍候。"
+            : "正在生成面试问题，请稍候。",
         );
-        setMessages((items) => [
-          ...items,
-          {
-            id: payload.stream_id,
-            role: "interviewer",
-            content: "",
-            streaming: true,
-            meta:
-              payload.kind === "follow_up"
-                ? `Follow-up for question ${payload.question_index} #${
-                    payload.follow_up_number ?? 1
-                  }`
-                : `Question ${payload.question_index}/${payload.total_questions} · ${difficultyName(
-                    payload.difficulty,
-                  )}`,
-          },
-        ]);
+        setMessages((items) => {
+          const existing = items.some((item) => item.id === payload.stream_id);
+          if (existing) {
+            return items.map((item) =>
+              item.id === payload.stream_id
+                ? { ...item, streaming: true, meta: streamMeta }
+                : item,
+            );
+          }
+          return [
+            ...items,
+            {
+              id: payload.stream_id,
+              role: "interviewer",
+              content: "",
+              streaming: true,
+              meta: streamMeta,
+            },
+          ];
+        });
         return;
       }
 
       if (payload.event === "delta") {
-        setMessages((items) =>
-          items.map((item) =>
-            item.id === payload.stream_id
-              ? { ...item, content: item.content + payload.chunk }
-              : item,
-          ),
-        );
+        setMessages((items) => {
+          const existing = items.some((item) => item.id === payload.stream_id);
+          if (existing) {
+            return items.map((item) =>
+              item.id === payload.stream_id
+                ? { ...item, content: item.content + payload.chunk }
+                : item,
+            );
+          }
+          return [
+            ...items,
+            {
+              id: payload.stream_id,
+              role: "interviewer",
+              content: payload.chunk,
+              streaming: true,
+              meta: streamMeta,
+            },
+          ];
+        });
         return;
       }
 
       setIsAwaitingAnswer(true);
+      setStage("awaiting_answer");
       setStatus(
         payload.kind === "follow_up"
-          ? "Follow-up ready. Please answer."
-          : "Question ready. Please answer.",
+          ? "追问已生成，请继续作答。"
+          : "问题已生成，请作答。",
       );
-      setMessages((items) =>
-        items.map((item) =>
-          item.id === payload.stream_id
-            ? {
-                ...item,
-                content: payload.content || item.content,
-                streaming: false,
-              }
-            : item,
-        ),
-      );
+      setMessages((items) => {
+        const existing = items.some((item) => item.id === payload.stream_id);
+        if (existing) {
+          return items.map((item) =>
+            item.id === payload.stream_id
+              ? {
+                  ...item,
+                  content: payload.content || item.content,
+                  streaming: false,
+                  meta: streamMeta,
+                }
+              : item,
+          );
+        }
+        return [
+          ...items,
+          {
+            id: payload.stream_id,
+            role: "interviewer",
+            content: payload.content,
+            streaming: false,
+            meta: streamMeta,
+          },
+        ];
+      });
       return;
     }
 
     if (payload.type === "question") {
       setIsAwaitingAnswer(true);
+      setStage("awaiting_answer");
       setCurrentTurn({
         questionIndex: payload.question_index,
         totalQuestions: payload.total_questions,
@@ -547,6 +590,7 @@ export function App() {
 
     if (payload.type === "follow_up") {
       setIsAwaitingAnswer(true);
+      setStage("awaiting_answer");
       setCurrentTurn({
         questionIndex: payload.question_index,
         followUpNumber: payload.follow_up_number,

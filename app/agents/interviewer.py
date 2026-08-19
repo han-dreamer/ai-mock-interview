@@ -100,6 +100,22 @@ async def _generate_interviewer_text(
                 }
             )
 
+    if not chunks:
+        logger.warning("Streaming interviewer response was empty; using chat fallback")
+        response = await llm.chat(messages=messages, temperature=temperature)
+        if not response.strip():
+            raise RuntimeError("The model returned an empty interview question")
+        chunks.append(response)
+        await emit_stream_event(
+            {
+                "event": "delta",
+                "stream_id": stream_id,
+                "kind": kind,
+                "chunk": response,
+                "done": False,
+            }
+        )
+
     response = "".join(chunks)
     await emit_stream_event(
         {
