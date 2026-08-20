@@ -75,8 +75,7 @@ async def _generate_interviewer_text(
             await emit_stream_event(
                 {
                     "event": "delta",
-                    "stream_id": stream_id,
-                    "kind": kind,
+                    **metadata,
                     "chunk": chunk,
                     "done": False,
                 }
@@ -93,8 +92,7 @@ async def _generate_interviewer_text(
             await emit_stream_event(
                 {
                     "event": "delta",
-                    "stream_id": stream_id,
-                    "kind": kind,
+                    **metadata,
                     "chunk": response,
                     "done": False,
                 }
@@ -109,8 +107,7 @@ async def _generate_interviewer_text(
         await emit_stream_event(
             {
                 "event": "delta",
-                "stream_id": stream_id,
-                "kind": kind,
+                **metadata,
                 "chunk": response,
                 "done": False,
             }
@@ -120,8 +117,7 @@ async def _generate_interviewer_text(
     await emit_stream_event(
         {
             "event": "end",
-            "stream_id": stream_id,
-            "kind": kind,
+            **metadata,
             "content": response,
             "done": True,
         }

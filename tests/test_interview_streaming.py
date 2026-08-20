@@ -67,6 +67,10 @@ async def test_ask_question_streams_chunks_and_returns_complete_state(monkeypatc
     assert [event["event"] for event in events] == ["start", "delta", "delta", "end"]
     assert "".join(event["chunk"] for event in events if event["event"] == "delta") == "第一段第二段"
     assert events[-1]["content"] == "第一段第二段"
+    assert all(event["question_index"] == 1 for event in events)
+    assert all(event["total_questions"] == 1 for event in events)
+    assert all(event["skill_tags"] == ["Python", "LangGraph"] for event in events)
+    assert all(event["difficulty"] == "medium" for event in events)
     assert result["conversation_history"][0].content == "第一段第二段"
     assert llm.chat_calls == 0
 

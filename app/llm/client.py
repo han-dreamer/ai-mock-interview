@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any, AsyncIterator, TypeVar, get_args, get_origin
 
@@ -133,6 +134,7 @@ class LLMClient:
         model: str | None = None,
         temperature: float | None = None,
     ) -> str:
+        started_at = time.perf_counter()
         response = await self._client.chat.completions.create(
             model=model or self.model,
             messages=messages,
@@ -140,6 +142,12 @@ class LLMClient:
         )
         content = response.choices[0].message.content or ""
         logger.debug("LLM response (%d chars): %s…", len(content), content[:120])
+        logger.info(
+            "LLM chat completed: model=%s elapsed=%.2fs output_chars=%d",
+            model or self.model,
+            time.perf_counter() - started_at,
+            len(content),
+        )
         return content
 
     # ------------------------------------------------------------------
@@ -152,12 +160,15 @@ class LLMClient:
         model: str | None = None,
         temperature: float | None = None,
     ) -> AsyncIterator[str]:
+        started_at = time.perf_counter()
         stream = await self._client.chat.completions.create(
             model=model or self.model,
             messages=messages,
             temperature=temperature if temperature is not None else self.temperature,
             stream=True,
         )
+        output_chars = 0
+        first_token_elapsed: float | None = None
         async for chunk in stream:
             # Some OpenAI-compatible providers emit terminal/metadata chunks
             # with an empty `choices` list or without textual delta content.
@@ -167,7 +178,17 @@ class LLMClient:
             delta = getattr(choices[0], "delta", None)
             content = getattr(delta, "content", None) if delta else None
             if content:
+                if first_token_elapsed is None:
+                    first_token_elapsed = time.perf_counter() - started_at
+                output_chars += len(content)
                 yield content
+        logger.info(
+            "LLM stream completed: model=%s first_token=%.2fs elapsed=%.2fs output_chars=%d",
+            model or self.model,
+            first_token_elapsed if first_token_elapsed is not None else -1.0,
+            time.perf_counter() - started_at,
+            output_chars,
+        )
 
     # ------------------------------------------------------------------
     # Multi-modal vision completion
@@ -258,6 +279,7 @@ class LLMClient:
         last_error: Exception | None = None
 
         for attempt in range(1, self.MAX_STRUCTURED_RETRIES + 1):
+            started_at = time.perf_counter()
             patched = list(messages)
             if attempt > 1:
                 retry_suffix = (
@@ -303,6 +325,13 @@ class LLMClient:
                 result = response_model.model_validate_json(raw)
                 if attempt > 1:
                     logger.info("Structured output succeeded on retry #%d", attempt)
+                logger.info(
+                    "LLM structured output completed: model=%s response_model=%s attempt=%d elapsed=%.2fs",
+                    model or self.model,
+                    response_model.__name__,
+                    attempt,
+                    time.perf_counter() - started_at,
+                )
                 return result
             except Exception as e:
                 last_error = e

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Literal
 
@@ -708,6 +709,7 @@ class SessionManager:
         if not data:
             raise ValueError(f"Session {session_id} not found")
 
+        started_at = time.perf_counter()
         async with data.lock:
             if data.graph_started:
                 state = await self.get_graph_state(session_id) or data.last_state
@@ -720,9 +722,26 @@ class SessionManager:
             graph = self._get_graph(mode)
             memory = get_memory_service()
             semantic_query = self._build_memory_query(session.jd_text, data.resume_text)
+            memory_started_at = time.perf_counter()
             memory_context = await memory.abuild_context(
                 data.user_id,
                 semantic_query=semantic_query,
+            )
+            logger.info(
+                "Interview preparation memory context ready: session=%s elapsed=%.2fs items=%d",
+                session_id,
+                time.perf_counter() - memory_started_at,
+                sum(
+                    len(items)
+                    for items in (
+                        memory_context.profile_items,
+                        memory_context.resume_items,
+                        memory_context.recent_reflections,
+                        memory_context.weak_skills,
+                        memory_context.relevant_episodes,
+                        memory_context.semantic_memories,
+                    )
+                ),
             )
             memory_context_text = memory.format_context(memory_context)
 
@@ -749,7 +768,16 @@ class SessionManager:
             self.update_session_status(session_id, "analyzing")
             stream_token = set_stream_sink(stream_sink)
             try:
+                graph_started_at = time.perf_counter()
                 result = await graph.ainvoke(initial_state, self._config(session_id))
+                logger.info(
+                    "Interview preparation graph ready: session=%s mode=%s elapsed=%.2fs total=%.2fs questions=%d",
+                    session_id,
+                    mode,
+                    time.perf_counter() - graph_started_at,
+                    time.perf_counter() - started_at,
+                    len(result.get("question_plan", []) or []),
+                )
                 data.graph_started = True
                 if result.get("resume_profile"):
                     try:

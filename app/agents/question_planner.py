@@ -9,6 +9,7 @@ Supports three planning strategies:
 from __future__ import annotations
 
 import logging
+import time
 
 from app.agents.state import InterviewState
 from app.llm.client import get_llm_client
@@ -107,6 +108,7 @@ async def _retrieve_reference_questions(
         f"正在从题库检索与 {purpose} 相关的参考问题。",
     )
     retriever = get_retriever()
+    started_at = time.perf_counter()
     retrieved = await retriever.retrieve_multi(
         queries,
         top_k_per_query=8,
@@ -119,6 +121,13 @@ async def _retrieve_reference_questions(
         top_k=final_top_k,
         max_per_category=6,
         max_per_difficulty=8,
+    )
+    logger.info(
+        "RAG question retrieval completed: purpose=%s elapsed=%.2fs retrieved=%d final=%d",
+        purpose,
+        time.perf_counter() - started_at,
+        len(retrieved),
+        len(diversified),
     )
     await emit_status_event(
         "retrieval_complete",

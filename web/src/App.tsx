@@ -75,6 +75,24 @@ function streamMessageMeta(payload: Extract<ServerMessage, { type: "stream_chunk
       )}`;
 }
 
+function normalizeMessageContent(content: string) {
+  return content.trim().replace(/\s+/g, " ");
+}
+
+function appendInterviewerMessage(items: ChatItem[], nextItem: ChatItem) {
+  const previous = items[items.length - 1];
+  if (previous?.role !== "interviewer") return [...items, nextItem];
+
+  const previousContent = normalizeMessageContent(previous.content);
+  const currentContent = normalizeMessageContent(nextItem.content);
+  const sameContent = previousContent === currentContent;
+  const completesStream =
+    previous.streaming && currentContent.length > 0 && currentContent.startsWith(previousContent);
+  if (!sameContent && !completesStream) return [...items, nextItem];
+
+  return [...items.slice(0, -1), { ...nextItem, id: previous.id }];
+}
+
 const modeName = (mode: InterviewMode) =>
   mode === "professional" ? "专业面试模式" : "练习模式";
 
@@ -574,17 +592,17 @@ export function App() {
         difficulty: payload.difficulty,
       });
       setStatus("请作答当前问题。");
-      setMessages((items) => [
-        ...items,
-        {
+      setMessages((items) =>
+        appendInterviewerMessage(items, {
           id: uid(),
           role: "interviewer",
           content: payload.content,
+          streaming: false,
           meta: `第 ${payload.question_index}/${payload.total_questions} 题 · ${difficultyName(
             payload.difficulty,
           )}`,
-        },
-      ]);
+        }),
+      );
       return;
     }
 
@@ -596,15 +614,15 @@ export function App() {
         followUpNumber: payload.follow_up_number,
       });
       setStatus("面试官正在追问，请继续补充回答。");
-      setMessages((items) => [
-        ...items,
-        {
+      setMessages((items) =>
+        appendInterviewerMessage(items, {
           id: uid(),
           role: "interviewer",
           content: payload.content,
+          streaming: false,
           meta: `第 ${payload.question_index} 题追问 · 第 ${payload.follow_up_number} 次`,
-        },
-      ]);
+        }),
+      );
       return;
     }
 
